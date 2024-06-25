@@ -2,12 +2,13 @@
 
 
 readonly _command="${0##*/}"
-readonly _c_version='0.1.7-1'
+readonly _c_version='0.1.8'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
 _cac_path="${_path}/Caches/com.nan.cac"
-mkdir -p "${_cac_path}"
+_record_path="${_path}/Record/com.nan.cac"
+mkdir -p "${_cac_path}" "${_record_path}"
 readonly _config="$(jq "." "${_path}/Preferences/com.nan.cac.js")"
 
 if [ -d '/proc/' ]; then
@@ -104,9 +105,19 @@ _get_app_info(){
 				_version="${_version%%</p>*}"
 				_version="${_version##*__version\">}"
 				_version="${_version##* }"
+				_version_id="$(echo "${_info}" | grep 'id="shoebox-ember-localizer">' | sed -n '1p')"
+				_version_id="${_version_id#*buyParams}"
+				_version_id="${_version_id%%buyParams*}"
+				_version_id="${_version_id#*ExtVrsId=}"
+				_version_id="${_version_id%%\\\",\\\"*}"
 				_price="$(echo "${_info}" | grep 'app-header__list__item--price">' | sed -n '1p')"
 				_price="${_price%%</li>*}"
 				_price="${_price##*--price\">}"
+				_record="${_version},${_version_id}"
+				if ! grep -q "${_record}" "${_record_path}/${2}_${1}.csv" 2>>/dev/null; then
+					echo "${_record}" >>"${_record_path}/${2}_${1}.csv"
+				fi
+				unset _record
 				if [ -n "${_version}" ] & [ -n "${_version}" ]; then
 					jo status='0' bundle="${_bundle}" id="${2}" name="${_name}" version="${_version}" price="${_price}" image="${_image}" | jq >"${_cac_path}/${2}_${1}-new.js"
 				else
