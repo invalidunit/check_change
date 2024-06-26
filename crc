@@ -202,7 +202,7 @@ while [ "${i}" -lt "${i_max}" ]; do
 		fi
 		if [ -f "${_package_file}-new" ]; then
 			cat "${_package_file}-new" | grep '^Package: ' | sed 's#^Package: ##' >"${_package_file}-new_packages.csv"
-			cat "${_package_file}-new" | grep '^Name: ' | sed 's#^Name: ##' >"${_package_file}-new_name.csv"
+			cat "${_package_file}-new" | grep '^Name: ' | sed 's#^Name: ##' | sed 's#,##g' >"${_package_file}-new_name.csv"
 			cat "${_package_file}-new" | grep '^Version: ' | sed 's#^Version: ##' >"${_package_file}-new_version.csv"
 			cat "${_package_file}-new" | grep '^Architecture: ' | sed 's#^Architecture: ##' >"${_package_file}-new_architecture.csv"
 			paste -d, "${_package_file}-new_packages.csv" "${_package_file}-new_name.csv" "${_package_file}-new_version.csv" "${_package_file}-new_architecture.csv" >"${_package_file}-new.csv"
