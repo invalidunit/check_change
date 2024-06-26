@@ -11,15 +11,15 @@ readonly _config="$(jq "." "${_path}/Preferences/com.nan.crc.js")"
 
 if ! which sw_vers 2>>/dev/null 1>>/dev/null; then
 	sw_vers(){
-		echo '14.3'
+		echo '17.0'
 	}
 	uname(){
 		case "${1}" in
 			-m)
-				echo 'iPhone9,3'
+				echo 'iPhone14,3'
 				;;
 			-r)
-				echo '20.2.0'
+				echo '23.0.0'
 				;;
 		esac
 	}
