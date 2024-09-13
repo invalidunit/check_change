@@ -54,6 +54,30 @@ _randnum(){
 	fi
 }
 
+_parse_package(){
+	awk '
+BEGIN {
+    FS=": ";
+    OFS=",";
+}
+{
+    sub(/\r$/, "");
+    if ($1 == "Package") package = $2;
+    if ($1 == "Name") name = $2;
+    if ($1 == "Version") version = $2;
+    if ($1 == "Architecture") arch = $2;
+}
+/^$/ {
+    print package, name, version, arch;
+    package = name = version = arch = "";
+}
+END {
+    if (package != "" || name != "" || version != "" || arch != "") {
+        print package, name, version, arch;
+    }
+}' "${1}" >"${2}"
+}
+
 echo '[*] Reading configuration file...'
 _bark_server="$(echo "${_config}" | jq ".bark.server" | _remove_colon | sed 's#^null$##')"
 if ! echo "${_bark_server}" | grep -Fq '.'; then
@@ -201,11 +225,8 @@ while [ "${i}" -lt "${i_max}" ]; do
 			echo '[*] Not found any "Package" file'
 		fi
 		if [ -f "${_package_file}-new" ]; then
-			cat "${_package_file}-new" | grep '^Package: ' | sed 's#^Package: ##' >"${_package_file}-new_packages.csv"
-			cat "${_package_file}-new" | grep '^Name: ' | sed 's#^Name: ##' | sed 's#,##g' >"${_package_file}-new_name.csv"
-			cat "${_package_file}-new" | grep '^Version: ' | sed 's#^Version: ##' >"${_package_file}-new_version.csv"
-			cat "${_package_file}-new" | grep '^Architecture: ' | sed 's#^Architecture: ##' >"${_package_file}-new_architecture.csv"
-			paste -d, "${_package_file}-new_packages.csv" "${_package_file}-new_name.csv" "${_package_file}-new_version.csv" "${_package_file}-new_architecture.csv" >"${_package_file}-new.csv"
+			awk -i inplace '/^Name: / { gsub(/,/, "", $0) } { print }' "${_package_file}-new"
+			_parse_package "${_package_file}-new" "${_package_file}-new.csv"
 			if [ "${_filter_architecture}" = 'auto' ]; then
 				_filter_architecture="$(dpkg --print-architecture)"
 			fi
@@ -226,13 +247,9 @@ while [ "${i}" -lt "${i_max}" ]; do
 			sort -k2n "${_package_file}-new-orig.csv" | uniq >"${_package_file}-new-orig2.csv"
 			sort -t"," -k1,1 -k3r "${_package_file}-new-orig2.csv" | awk -F, '!a[$1]++' >"${_package_file}-new.csv"
 			sed -i.tmp '1i Package,Name,Version,Architecture' "${_package_file}-new.csv"
+			sed -i.tmp 's#,,#,no_name,#g' "${_package_file}-new.csv"
+			awk -i inplace -F, 'BEGIN {OFS=","} $2 == "no_name" { $2 = $1 } 1' "${_package_file}-new.csv"
 			rm -f "${_package_file}-new-orig.csv" "${_package_file}-new-orig2.csv" "${_package_file}-new.csv.tmp" "${_package_file}-new_"* "${_package_file}-new"
-			if grep -q ',,' "${_package_file}-new.csv"; then
-				#"name" is corrupted
-				_not_read_name='1'
-			else
-				_not_read_name='0'
-			fi
 			if [ -f "${_package_file}.csv" ]; then
 				echo '[*] Start analyzing "Packages" differences'
 				cut -d, -f1,3 "${_package_file}.csv" >"${_package_file}"
@@ -250,7 +267,7 @@ while [ "${i}" -lt "${i_max}" ]; do
 							*'|'*)
 								_package="${_package%%,*}"
 								_version="$(awk -v package="${_package}" -F ',' '$1==package {print $3}' "${_package_file}.csv" | sed -n '1p') -> $(awk -v package="${_package}" -F ',' '$1==package {print $3}' "${_package_file}-new.csv" | sed -n '1p')"
-								if [ "${_use_name}" = '1' ] && [ "${_not_read_name}" = '0' ]; then
+								if [ "${_use_name}" = '1' ]; then
 									_package="$(awk -v package="${_package}" -F ',' '$1==package {print $2}' "${_package_file}-new.csv" | sed -n '1p')"
 								fi
 								if [ -n "${_up}" ]; then
@@ -264,7 +281,7 @@ ${_package} ${_version}"
 								_package="${_package%%,*}"
 								_package="${_package##*>	}"
 								_version="$(awk -v package="${_package}" -F ',' '$1==package {print $3}' "${_package_file}-new.csv" | sed -n '1p')"
-								if [ "${_use_name}" = '1' ] && [ "${_not_read_name}" = '0' ]; then
+								if [ "${_use_name}" = '1' ]; then
 									_package="$(awk -v package="${_package}" -F ',' '$1==package {print $2}' "${_package_file}-new.csv" | sed -n '1p')"
 								fi
 								if [ -n "${_add}" ]; then
@@ -277,7 +294,7 @@ ${_package} ${_version}"
 							*'<'*)
 								_package="${_package%%,*}"
 								_version="$(awk -v package="${_package}" -F ',' '$1==package {print $3}' "${_package_file}.csv" | sed -n '1p')"
-								if [ "${_use_name}" = '1' ] && ! grep -q ',,' "${_package_file}.csv"; then
+								if [ "${_use_name}" = '1' ]; then
 									_package="$(awk -v package="${_package}" -F ',' '$1==package {print $2}' "${_package_file}.csv" | sed -n '1p')"
 								fi
 								if [ -n "${_del}" ]; then
