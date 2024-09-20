@@ -2,7 +2,7 @@
 
 
 readonly _command="${0##*/}"
-readonly _c_version='0.1.9'
+readonly _c_version='0.1.9-1'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
@@ -107,7 +107,6 @@ _get_app_info(){
 				_version_html="${_version_html##*__version\">}"
 				_version_html="${_version_html##* }"
 				_version="$(printf "%s\n%s\n" "${_version_api}" "${_version_html}" | sort -V | tail -1)"
-				unset _version_api _version_html
 				_version_id="$(echo "${_info}" | grep 'id="shoebox-ember-localizer">' | sed -n '1p')"
 				_version_id="${_version_id#*buyParams}"
 				_version_id="${_version_id%%buyParams*}"
@@ -116,7 +115,8 @@ _get_app_info(){
 				_price="$(echo "${_info}" | grep 'app-header__list__item--price">' | sed -n '1p')"
 				_price="${_price%%</li>*}"
 				_price="${_price##*--price\">}"
-				_record="${_version},${_version_id}"
+				_record="${_version_html},${_version_id}"
+				unset _version_api _version_html
 				if ! grep -q "${_record}" "${_record_path}/${2}_${1}.csv" 2>>/dev/null; then
 					echo "${_record}" >>"${_record_path}/${2}_${1}.csv"
 				fi
