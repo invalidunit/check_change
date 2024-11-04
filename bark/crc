@@ -2,6 +2,7 @@
 
 
 readonly _command="${0##*/}"
+readonly _c_version='0.3.0'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
@@ -261,11 +262,37 @@ while [ "${i}" -lt "${i_max}" ]; do
 					diff -y "${_package_file}" "${_package_file}-new" | grep -E '\||>|<' >"${_package_file}.diff"
 					a='1'
 					a_max="$(cat "${_package_file}.diff" | wc -l)"
+					rm -f "${_package_file}_diff.list.tmp"
 					while [ "${a}" -le "${a_max}" ]; do
-						_package="$(sed -n "${a}p" "${_package_file}.diff")"
-						case "${_package}" in
+						_content="$(sed -n "${a}p" "${_package_file}.diff" | sed 's# ##g' | sed 's#	##g')"
+						case "${_content}" in
 							*'|'*)
-								_package="${_package%%,*}"
+								_content1="$(echo "${_content}" | awk -F '|' '{print $1}')"
+								if echo "${_content1}" | grep -q ',' ; then
+									echo "${_content1%%,*}" >>"${_package_file}_diff.list.tmp"
+								fi
+								_content2="$(echo "${_content}" | awk -F '|' '{print $2}')"
+								if echo "${_content2}" | grep -q ',' ; then
+									echo "${_content2%%,*}" >>"${_package_file}_diff.list.tmp"
+								fi
+								;;
+							*'>'*)
+								echo "${_content}" | sed 's#>##'| awk -F ',' '{print $1}' >>"${_package_file}_diff.list.tmp"
+								;;
+							*'<'*)
+								echo "${_content}" | sed 's#<##'| awk -F ',' '{print $1}' >>"${_package_file}_diff.list.tmp"
+								;;
+						esac
+						unset _content _content1 _content2
+						a="$((a+1))"
+					done
+					sort -k2n "${_package_file}_diff.list.tmp" | uniq >"${_package_file}_diff.list"
+					a='1'
+					a_max="$(cat "${_package_file}_diff.list" | wc -l)"
+					while [ "${a}" -le "${a_max}" ]; do
+						_package="$(sed -n "${a}p" "${_package_file}_diff.list")"
+						if grep -q "${_package}" "${_package_file}.csv"; then
+							if grep -q "${_package}" "${_package_file}-new.csv"; then
 								_version="$(awk -v package="${_package}" -F ',' '$1==package {print $3}' "${_package_file}.csv" | sed -n '1p') -> $(awk -v package="${_package}" -F ',' '$1==package {print $3}' "${_package_file}-new.csv" | sed -n '1p')"
 								if [ "${_use_name}" = '1' ]; then
 									_package="$(awk -v package="${_package}" -F ',' '$1==package {print $2}' "${_package_file}-new.csv" | sed -n '1p')"
@@ -276,23 +303,7 @@ ${_package} ${_version}"
 								else
 									_up="${_package} ${_version}"
 								fi
-								;;
-							*'>'*)
-								_package="${_package%%,*}"
-								_package="${_package##*>	}"
-								_version="$(awk -v package="${_package}" -F ',' '$1==package {print $3}' "${_package_file}-new.csv" | sed -n '1p')"
-								if [ "${_use_name}" = '1' ]; then
-									_package="$(awk -v package="${_package}" -F ',' '$1==package {print $2}' "${_package_file}-new.csv" | sed -n '1p')"
-								fi
-								if [ -n "${_add}" ]; then
-									_add="${_add}
-${_package} ${_version}"
-								else
-									_add="${_package} ${_version}"
-								fi
-								;;
-							*'<'*)
-								_package="${_package%%,*}"
+							else
 								_version="$(awk -v package="${_package}" -F ',' '$1==package {print $3}' "${_package_file}.csv" | sed -n '1p')"
 								if [ "${_use_name}" = '1' ]; then
 									_package="$(awk -v package="${_package}" -F ',' '$1==package {print $2}' "${_package_file}.csv" | sed -n '1p')"
@@ -303,8 +314,21 @@ ${_package} ${_version}"
 								else
 									_del="${_package} ${_version}"
 								fi
-								;;
-						esac
+							fi
+						elif grep -q "${_package}" "${_package_file}-new.csv"; then
+							_version="$(awk -v package="${_package}" -F ',' '$1==package {print $3}' "${_package_file}-new.csv" | sed -n '1p')"
+							if [ "${_use_name}" = '1' ]; then
+								_package="$(awk -v package="${_package}" -F ',' '$1==package {print $2}' "${_package_file}-new.csv" | sed -n '1p')"
+							fi
+							if [ -n "${_add}" ]; then
+								_add="${_add}
+${_package} ${_version}"
+							else
+								_add="${_package} ${_version}"
+							fi
+						else
+							sleep 0
+						fi
 						unset _package _version
 						a="$((a+1))"
 					done
@@ -365,7 +389,7 @@ ${_del}"
 		else
 			echo '[x] Error: The downloaded file is corrupt or the download failed...'
 		fi
-		rm -f "${_package_file}.diff" "${_package_file}.diff2" "${_package_file}-new.tmp" "${_package_file}.up.tmp" "${_package_file}.up" "${_package_file}.add.tmp" "${_package_file}.add" "${_package_file}.del.tmp" "${_package_file}.del" "${_package_file}.Release" "${_package_file}" "${_package_file}-new"
+		rm -f "${_package_file}.diff" "${_package_file}.diff2" "${_package_file}-new.tmp" "${_package_file}.up.tmp" "${_package_file}.up" "${_package_file}.add.tmp" "${_package_file}.add" "${_package_file}.del.tmp" "${_package_file}.del" "${_package_file}.Release" "${_package_file}" "${_package_file}-new" "${_package_file}_diff.list" "${_package_file}_diff.list.tmp"
 	fi
 	unset _bark_title _bark_body _bark_body_up _bark_body_add _bark_body_del _bark_group _bark_level _bark_is_archive _bark_sound _bark_icon _host _origin _up _add _del _package _version _filter_architecture _use_name
 	i="$((i+1))"
