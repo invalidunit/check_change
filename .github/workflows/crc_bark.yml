@@ -2,6 +2,9 @@ name: crc bark
 
 on:
   workflow_call:
+    secrets:
+      _key: 
+        required: true
 
 jobs:
   crc:
@@ -10,7 +13,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           _repo: ${{ secrets.repository }}
           _key: ${{ secrets._key }}
 
@@ -40,7 +42,6 @@ jobs:
       - name: crc
         if: success()
         env:
-          _repo: ${{ github.repository }}
           _key: ${{ secrets._key }}
         run: |
           crc './Library/' 
