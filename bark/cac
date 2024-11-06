@@ -2,7 +2,7 @@
 
 
 readonly _command="${0##*/}"
-readonly _c_version='0.1.9-1'
+readonly _c_version='0.1.9-2'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
@@ -10,6 +10,7 @@ _cac_path="${_path}/Caches/com.nan.cac"
 _record_path="${_path}/Record/com.nan.cac"
 mkdir -p "${_cac_path}" "${_record_path}"
 readonly _config="$(jq "." "${_path}/Preferences/com.nan.cac.js")"
+echo "version: ${_version}"
 
 if [ -d '/proc/' ]; then
 	#openwrt not have ps -p
