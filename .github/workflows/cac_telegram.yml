@@ -2,6 +2,11 @@ name: cac telegram
 
 on:
   workflow_call:
+    secrets:
+      _token: 
+        required: true
+      _chap_id:
+        required: true
 
 jobs:
   cac:
@@ -37,7 +42,6 @@ jobs:
       - name: cac
         if: success()
         env:
-          _repo: ${{ github.repository }}
           _token: ${{ secrets._token }}
           _chap_id: ${{ secrets._chap_id }}
         run: |
