@@ -2,6 +2,9 @@ name: cac bark
 
 on:
   workflow_call:
+    secrets:
+      _key: 
+        required: true
 
 jobs:
   cac:
@@ -42,7 +45,6 @@ jobs:
       - name: cac
         if: success()
         env:
-          _repo: ${{ github.repository }}
           _key: ${{ secrets._key }}
         run: |
           cac './Library/' 
