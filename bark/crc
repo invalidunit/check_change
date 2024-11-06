@@ -2,13 +2,14 @@
 
 
 readonly _command="${0##*/}"
-readonly _c_version='0.3.0'
+readonly _c_version='0.3.0-1'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
 _crc_path="${_path}/Caches/com.nan.crc"
 mkdir -p "${_crc_path}"
 readonly _config="$(jq "." "${_path}/Preferences/com.nan.crc.js")"
+echo "version: ${_version}"
 
 if ! which sw_vers 2>>/dev/null 1>>/dev/null; then
 	sw_vers(){
