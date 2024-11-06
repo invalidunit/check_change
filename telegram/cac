@@ -1,0 +1,280 @@
+#!/bin/sh -
+
+
+readonly _command="${0##*/}"
+readonly _c_version='0.1.9-3'
+export LANG=en_US.UTF-8
+_start_time="$(date "+%Y-%m-%d-%H%M%S")"
+_path="$(echo "${1}" | sed 's#/$##')"
+_cac_path="${_path}/Caches/com.nan.cac"
+_record_path="${_path}/Record/com.nan.cac"
+mkdir -p "${_cac_path}" "${_record_path}"
+readonly _config="$(jq "." "${_path}/Preferences/com.nan.cac.js")"
+echo "version: ${_c_version}"
+
+if [ -d '/proc/' ]; then
+	#openwrt not have ps -p
+	_now_sh="$(readlink "/proc/$$/exe")"
+	_now_sh="${_now_sh##*/}"
+else
+	#ios and macos not have "/proc/"
+	_now_sh="$(basename "$(echo "$(ps -p $$ -o command=)" | awk '{print $1}')")"
+fi
+if [ ! -t 0 ]; then
+	case "${_now_sh}" in
+		dash)
+			while IFS= read -r line || [ -n "$line" ]; do
+				_incoming="$_incoming$line"'\n'
+			done
+			_incoming="$(printf '%b\n' "${_incoming}")"
+		;;
+		sh)
+			if readlink "$(which sh)" | grep -q 'dash$'; then
+				while IFS= read -r line || [ -n "$line" ]; do
+					_incoming="$_incoming$line"'\n'
+				done
+				_incoming="$(printf '%b\n' "${_incoming}")"
+			else
+				read -d $'\0' -r _incoming
+			fi
+		;;
+		*)
+			read -d $'\0' -r _incoming
+		;;
+	esac
+fi
+
+_get_package_version(){
+	if [ "${1}" = 'sh' ]; then
+		_command2="$(readlink "$(which sh)")"
+		_command2="${_command2##*/}"
+	else
+		_command2="${1}"
+	fi
+	#If it is not Debian, return the unknown version directly
+	if which dpkg 2>>/dev/null 1>>/dev/null; then
+		if dpkg -s "${_command2}" 2>>/dev/null 1>>/dev/null; then
+			echo "${_command2}/$(dpkg -s "${_command2}" | grep '^Version: ' | sed 's#Version: ##')"
+		else
+			_command_p="$(which "${_command2}")"
+			if ! dpkg -S "${_command_p}" 2>>/dev/null 1>>/dev/null; then
+				echo "${_command2}/unknown"
+			else
+				_command_p="$(dpkg -S "${_command_p}")"
+				_command_p="${_command_p##*/}"
+				echo "${_command2}/$(dpkg -s "${_command_p}" | grep '^Version: ' | sed 's#Version: ##')"
+			fi
+		fi
+	else
+		echo "${_command2}/unknown"
+	fi
+	unset _command2 _command_p
+}
+
+_user_agent="$(_get_package_version 'curl') $(uname -s)/$(uname -r) $(_get_package_version "${_now_sh}") ${_command}/${_c_version}(shell script)"
+
+_remove_colon(){
+	if [ -n "${1}" ]; then
+		echo "${1}" | sed 's#^"##' | sed 's#"$##'
+	else
+		while IFS= read -r line || [ -n "$line" ]; do
+			_incoming="$_incoming$line"'\n'
+		done
+		_incoming="$(printf '%b\n' "${_incoming}")"
+		echo "${_incoming}" | sed 's#^"##' | sed 's#"$##'
+	fi
+	unset _incoming
+}
+
+_transform_url_encoded(){
+	printf %s "${1}" | jq -s -R -r @uri
+}
+
+_randnum(){
+	if [ -z "${2}" ]; then
+		tr -dc 'A-Za-z0-9' < /dev/urandom 2>>/dev/null | head -c "${1}"
+	else
+		tr -dc "${1}" < /dev/urandom 2>>/dev/null | head -c "${2}"
+	fi
+}
+
+_get_app_info(){
+	if curl --max-time 30 -s -L -H "user-agent: ${_user_agent}" "https://itunes.apple.com/${1}/lookup?id=${2}" 1>"${_cac_path}/${2}_${1}-new.js"; then
+		_bundle="$(jq ".results[].bundleId" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
+		_version_api="$(jq ".results[].version" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
+		_name="$(jq ".results[].trackName" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
+		if ! jq ".resultCount" "${_cac_path}/${2}_${1}-new.js" | grep -q '^null$'; then
+			if jq ".resultCount" "${_cac_path}/${2}_${1}-new.js" | grep -q '^1$'; then
+				_info="$(curl --max-time 30 -s -L -H "user-agent: ${_user_agent}" "https://apps.apple.com/${1}/app/id${2}")"
+				_version_html="$(echo "${_info}" | grep 'whats-new__latest__version">' | sed -n '1p')"
+				_version_html="${_version_html%%</p>*}"
+				_version_html="${_version_html##*__version\">}"
+				_version_html="${_version_html##* }"
+				_version="$(printf "%s\n%s\n" "${_version_api}" "${_version_html}" | sort -V | tail -1)"
+				_version_id="$(echo "${_info}" | grep 'id="shoebox-ember-localizer">' | sed -n '1p')"
+				_version_id="${_version_id#*buyParams}"
+				_version_id="${_version_id%%buyParams*}"
+				_version_id="${_version_id#*ExtVrsId=}"
+				_version_id="${_version_id%%\\\",\\\"*}"
+				_price="$(echo "${_info}" | grep 'app-header__list__item--price">' | sed -n '1p')"
+				_price="${_price%%</li>*}"
+				_price="${_price##*--price\">}"
+				_record="${_version_html},${_version_id}"
+				unset _version_api _version_html
+				if ! grep -q "${_record}" "${_record_path}/${2}_${1}.csv" 2>>/dev/null; then
+					echo "${_record}" >>"${_record_path}/${2}_${1}.csv"
+				fi
+				unset _record
+				if [ -n "${_version}" ] & [ -n "${_version}" ]; then
+					jo status='0' bundle="${_bundle}" id="${2}" name="${_name}" version="${_version}" version_id="${_version_id}" price="${_price}" | jq >"${_cac_path}/${2}_${1}-new.js"
+				else
+					jo status='1' id="${2}" | jq >"${_cac_path}/${2}_${1}-new.js"
+				fi
+			else
+				jo status='1' id="${2}" | jq >"${_cac_path}/${2}_${1}-new.js"
+			fi
+		fi
+	fi
+}
+
+
+echo '[*] Reading configuration file...'
+_root_message_cache="$(echo "${_config}" | jq ".message.cache" | _remove_colon | sed 's#^null$##')"
+if [ -z "${_root_message_cache}" ]; then
+	_root_message_cache='app_name\nNow Version: app_version_new\nhas benn cache'
+fi
+_root_message_up="$(echo "${_config}" | jq ".message.up" | _remove_colon | sed 's#^null$##')"
+if [ -z "${_root_message_up}" ]; then
+	_root_message_up='app_name\nfind update:\napp_version'
+fi
+_root_message_del="$(echo "${_config}" | jq ".message.del" | _remove_colon | sed 's#^null$##')"
+if [ -z "${_root_message_del}" ]; then
+	_root_message_del='app_bundle\nMay have been removed\nThe latest version is:\napp_version'
+fi
+echo '[*] Done'
+
+
+if echo "${_config}" | jq ".enable" | _remove_colon | grep -q '0'; then
+	exit 0
+fi
+i='0'
+i_max="$(echo "${_config}" | jq ".app|length")"
+while [ "${i}" -lt "${i_max}" ]; do
+	_sleep="$(_randnum '0-2' '1')$(_randnum '0-9' '1')"
+	echo "[*] wait \"${_sleep}s\""
+	sleep "${_sleep}"
+	unset _sleep
+	_app="$(echo "${_config}" | jq ".app[${i}].url" | _remove_colon)"
+	_id="${_app##*/id}"
+	_id="${_id%%\?*}"
+	_area="${_app%%/app/*}"
+	_area="${_area##*apps.apple.com/}"
+	if ! echo "${_config}" | jq ".app[${i}].enable" | _remove_colon | grep -q '0'; then
+		echo "[*] now check \"${_id}\""
+		echo '[*] Check this id for custom settings...'
+		if echo "${_config}" | jq ".app[${i}].message.cache" | _remove_colon | grep -q 'null'; then
+			_message_cache="${_root_message_cache}"
+		else
+			_message_cache="$(echo "${_config}" | jq ".app[${i}].message.cache" | _remove_colon)"
+		fi
+		if echo "${_config}" | jq ".app[${i}].message.up" | _remove_colon | grep -q 'null'; then
+			_message_up="${_root_message_up}"
+		else
+			_message_up="$(echo "${_config}" | jq ".app[${i}].message.up" | _remove_colon)"
+		fi
+		if echo "${_config}" | jq ".app[${i}].message.del" | _remove_colon | grep -q 'null'; then
+			_message_del="${_root_message_del}"
+		else
+			_message_del="$(echo "${_config}" | jq ".app[${i}].message.del" | _remove_colon)"
+		fi
+		echo '[*] Done'
+		_get_app_info "${_area}" "${_id}"
+		if jq ".status" "${_cac_path}/${_id}_${_area}-new.js" | grep '^null$'; then
+			_status='5'
+		else
+			if [ -s "${_cac_path}/${_id}_${_area}.js" ]; then
+				if [ "$(jq -c '{v:.version, p:.price}' "${_cac_path}/${_id}_${_area}.js")" = "$(jq -c '{v:.version, p:.price}' "${_cac_path}/${_id}_${_area}-new.js")" ]; then
+					_status='0'
+				else
+					if [ ! "$(jq ".status" "${_cac_path}/${_id}_${_area}-new.js")" = '0' ]; then
+						_bundle="$(jq ".bundle" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
+						_name="$(jq ".name" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
+						_version="$(jq ".version" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
+						_status='3'
+					else
+						if [ ! "$(jq ".version" "${_cac_path}/${_id}_${_area}.js")" = "$(jq ".version" "${_cac_path}/${_id}_${_area}-new.js")" ]; then
+							_version="$(jq ".version" "${_cac_path}/${_id}_${_area}.js" | _remove_colon) -> $(jq ".version" "${_cac_path}/${_id}_${_area}-new.js" | _remove_colon)"
+						else
+							_version="$(jq ".version" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
+						fi
+						if [ ! "$(jq ".price" "${_cac_path}/${_id}_${_area}.js")" = "$(jq ".price" "${_cac_path}/${_id}_${_area}-new.js")" ]; then
+							_price="$(jq ".price" "${_cac_path}/${_id}_${_area}.js" | _remove_colon) -> $(jq ".price" "${_cac_path}/${_id}_${_area}-new.js" | _remove_colon)"
+						else
+							_price="$(jq ".price" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
+						fi
+						_status='2'
+					fi
+				fi
+			else
+				if [ "$(jq ".status" "${_cac_path}/${_id}_${_area}-new.js")" = '1' ]; then
+					_status='-1'
+				else
+					_status='1'
+				fi
+			fi
+		fi
+		case "${_status}" in
+			5)
+				echo '[=] Network Error'
+				rm -f "${_cac_path}/${_id}_${_area}-new.js"
+				;;
+			3)
+				echo '[=] May have been removed'
+				if [ -f "${_cac_path}/${_id}_${_area}.del" ]; then
+					_check="$(cat "${_cac_path}/${_id}_${_area}.del")"
+					if echo "$((_check+1))" | grep -q '^10$'; then
+						_message="$(echo "${_message_del}" | sed "s#app_bundle#${_bundle}#g" | sed "s#app_id#id${_id}#g" | sed "s#app_name#${_name}#g" | sed "s#app_version_id#${_version_id}#g" | sed "s#app_version#${_version}#g" | sed "s#app_price#${_price}#g")"
+						rm -f "${_cac_path}/${_id}_${_area}.js" "${_cac_path}/${_id}_${_area}-new.js" "${_cac_path}/${_id}_${_area}.del"
+					else
+						echo -n "$((_check+1))" >"${_cac_path}/${_id}_${_area}.del"
+						echo "[=] It has been detected \"$(cat "${_cac_path}/${_id}_${_area}.del")\" times that a removal has occurred..."
+					fi
+				else
+					echo -n '1' >"${_cac_path}/${_id}_${_area}.del"
+					echo "[=] It has been detected \"$(cat "${_cac_path}/${_id}_${_area}.del")\" times that a removal has occurred..."
+				fi
+				rm -f "${_cac_path}/${_id}_${_area}-new.js"
+				;;
+			2)
+				echo '[=] find update, new app info has been cached'
+				rm -f "${_cac_path}/${_id}_${_area}.js" "${_cac_path}/${_id}_${_area}.del"
+				mv "${_cac_path}/${_id}_${_area}-new.js" "${_cac_path}/${_id}_${_area}.js"
+				_message="$(echo "${_message_up}" | sed "s#app_bundle#${_bundle}#g" | sed "s#app_id#${_id}#g" | sed "s#app_name#${_name}#g" | sed "s#app_version_id#${_version_id}#g" | sed "s#app_version#${_version}#g" | sed "s#app_price#${_price}#g")"
+				;;
+			1)
+				echo '[=] app info has been cached'
+				rm -f "${_cac_path}/${_id}_${_area}.js" "${_cac_path}/${_id}_${_area}.del"
+				mv "${_cac_path}/${_id}_${_area}-new.js" "${_cac_path}/${_id}_${_area}.js"
+				_message="$(echo "${_message_cache}" | sed "s#app_bundle#${_bundle}#g" | sed "s#app_id#${_id}#g" | sed "s#app_name#${_name}#g" | sed "s#app_version_id#${_version_id}#g" | sed "s#app_version#${_version}#g" | sed "s#app_price#${_price}#g")"
+				;;
+			0)
+				echo '[=] nothing happened'
+				rm -f "${_cac_path}/${_id}_${_area}.js" "${_cac_path}/${_id}_${_area}.del"
+				mv "${_cac_path}/${_id}_${_area}-new.js" "${_cac_path}/${_id}_${_area}.js"
+				;;
+			*)
+				echo '[=] unknown'
+				rm -f "${_cac_path}/${_id}_${_area}-new.js"
+				;;
+		esac
+		if [ -n "${_message}" ]; then
+			curl -L "https://api.telegram.org/bot${_token}/sendMessage?chat_id=${_chap_id}&text=$(_transform_url_encoded "${_message}")" | jq
+		fi
+		unset _status _message _message_cache _message_up _message_del _info _bundle _id _name _version _version_id _price
+	else
+		echo "[*] now \"${_id}\", Skip because is disable..."
+	fi
+	unset _area _id _bundle _name _version _info
+	i="$((i+1))"
+done
+exit 0
