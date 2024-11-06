@@ -13,8 +13,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          _repo: ${{ secrets.repository }}
-          _key: ${{ secrets._key }}
+          submodules: recursive
 
       - name: install depends
         run: |
