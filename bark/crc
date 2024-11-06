@@ -9,7 +9,7 @@ _path="$(echo "${1}" | sed 's#/$##')"
 _crc_path="${_path}/Caches/com.nan.crc"
 mkdir -p "${_crc_path}"
 readonly _config="$(jq "." "${_path}/Preferences/com.nan.crc.js")"
-echo "version: ${_version}"
+echo "version: ${_c_version}"
 
 if ! which sw_vers 2>>/dev/null 1>>/dev/null; then
 	sw_vers(){
