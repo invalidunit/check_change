@@ -10,7 +10,7 @@ _cac_path="${_path}/Caches/com.nan.cac"
 _record_path="${_path}/Record/com.nan.cac"
 mkdir -p "${_cac_path}" "${_record_path}"
 readonly _config="$(jq "." "${_path}/Preferences/com.nan.cac.js")"
-echo "version: ${_version}"
+echo "version: ${_c_version}"
 
 if [ -d '/proc/' ]; then
 	#openwrt not have ps -p
