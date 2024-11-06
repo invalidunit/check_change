@@ -1,0 +1,55 @@
+name: cac telegram
+
+on:
+  workflow_call:
+
+jobs:
+  cac:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: install jq
+        run: |
+          sudo apt update >>/dev/null
+          sudo apt install jq -y
+
+      - name: install jo
+        run: |
+          sudo apt install gcc git automake autoconf -y
+          git clone 'https://github.com/jpmens/jo.git' '/tmp/jo'
+          echo 'cd /tmp/jo' >>/tmp/jo_install.sh
+          echo 'autoreconf -i' >>/tmp/jo_install.sh
+          echo './configure' >>/tmp/jo_install.sh
+          echo 'make check' >>/tmp/jo_install.sh
+          echo 'make install' >>/tmp/jo_install.sh
+          chmod -R 0755 '/tmp/jo_install.sh'
+          sudo '/tmp/jo_install.sh'
+          
+      - name: download cac
+        run: |
+          sudo curl -L -o '/usr/bin/cac' 'https://raw.githubusercontent.com/invalidunit/check_change/main/telegram/cac'
+          sudo chmod -R 0755 '/usr/bin/cac'
+
+      - name: cac
+        if: success()
+        env:
+          _repo: ${{ github.repository }}
+          _token: ${{ secrets._token }}
+          _chap_id: ${{ secrets._chap_id }}
+        run: |
+          cac './Library/'
+          
+      - name: save caches if local change
+        if: success()
+        run: |
+          git config --global user.email 'action@github.com'
+          git config --global user.name 'GitHub Action'
+          git add .
+          if ! git diff --staged --exit-code 1>>/dev/null; then
+            git commit -m 'save caches'
+            git push
+          fi
