@@ -18,9 +18,9 @@ jobs:
       - name: check
         run: |
           if [ ! "$(cat './whoami')" = "${{ github.actor }}" ]; then
-		        echo 'Nothing will happen...'
-		        exit 0
-	        fi
+            echo 'Nothing will happen...'
+            exit 0
+          fi
 
       - name: install jq
         run: |
