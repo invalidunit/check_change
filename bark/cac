@@ -2,7 +2,7 @@
 
 
 readonly _command="${0##*/}"
-readonly _c_version='0.1.9-2'
+readonly _c_version='0.2.0'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
@@ -96,12 +96,12 @@ _randnum(){
 
 _get_app_info(){
 	if curl --max-time 30 -s -L -H "user-agent: ${_user_agent}" "https://itunes.apple.com/${1}/lookup?id=${2}" 1>"${_cac_path}/${2}_${1}-new.js"; then
-		_bundle="$(jq ".results[].bundleId" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
-		_version_api="$(jq ".results[].version" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
-		_name="$(jq ".results[].trackName" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
-		_image="$(jq ".results[].artworkUrl100" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
 		if ! jq ".resultCount" "${_cac_path}/${2}_${1}-new.js" | grep -q '^null$'; then
 			if jq ".resultCount" "${_cac_path}/${2}_${1}-new.js" | grep -q '^1$'; then
+				_bundle="$(jq ".results[].bundleId" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
+				_version_api="$(jq ".results[].version" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
+				_name="$(jq ".results[].trackName" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
+				_image="$(jq ".results[].artworkUrl100" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
 				_info="$(curl --max-time 30 -s -L -H "user-agent: ${_user_agent}" "https://apps.apple.com/${1}/app/id${2}")"
 				_version_html="$(echo "${_info}" | grep 'whats-new__latest__version">' | sed -n '1p')"
 				_version_html="${_version_html%%</p>*}"
@@ -117,16 +117,18 @@ _get_app_info(){
 				_price="${_price%%</li>*}"
 				_price="${_price##*--price\">}"
 				_record="${_version_html},${_version_id}"
-				unset _version_api _version_html
 				if ! grep -q "${_record}" "${_record_path}/${2}_${1}.csv" 2>>/dev/null; then
 					echo "${_record}" >>"${_record_path}/${2}_${1}.csv"
 				fi
-				unset _record
-				if [ -n "${_version}" ] & [ -n "${_version}" ]; then
-					jo status='0' bundle="${_bundle}" id="${2}" name="${_name}" version="${_version}" price="${_price}" image="${_image}" | jq >"${_cac_path}/${2}_${1}-new.js"
-				else
-					jo status='1' id="${2}" | jq >"${_cac_path}/${2}_${1}-new.js"
-				fi
+				unset _record _version_api _version_html _version_id
+				case "${_version}" in
+					''|null)
+						jo status='1' id="${2}" | jq >"${_cac_path}/${2}_${1}-new.js"
+						;;
+					*)
+						jo status='0' bundle="${_bundle}" id="${2}" name="${_name}" version="${_version}" price="${_price}" image="${_image}" | jq >"${_cac_path}/${2}_${1}-new.js"
+						;;
+				esac
 			else
 				jo status='1' id="${2}" | jq >"${_cac_path}/${2}_${1}-new.js"
 			fi
