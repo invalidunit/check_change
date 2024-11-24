@@ -17,7 +17,7 @@ jobs:
 
       - name: check
         run: |
-          if [ ! "$(cat './whoami')" = "${{ github.actor }}" ]; then
+          if [ ! "$(cat './whoami' | sed -n '1p')" = "${{ github.actor }}" ]; then
             echo 'Nothing will happen...'
             exit 1
           fi
