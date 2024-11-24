@@ -15,6 +15,13 @@ jobs:
         with:
           submodules: recursive
 
+      - name: check
+        run: |
+          if [ ! "$(cat './whoami')" = "${{ github.actor }}" ]; then
+		        echo 'Nothing will happen...'
+		        exit 0
+	        fi
+
       - name: install jq
         run: |
           sudo apt update >>/dev/null
