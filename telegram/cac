@@ -2,7 +2,7 @@
 
 
 readonly _command="${0##*/}"
-readonly _c_version='0.2.0'
+readonly _c_version='0.2.1'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
@@ -123,7 +123,7 @@ _get_app_info(){
 				if ! grep -q "${_record}" "${_record_path}/${2}_${1}.csv" 2>>/dev/null; then
 					echo "${_record}" >>"${_record_path}/${2}_${1}.csv"
 				fi
-				unset _record _version_api _version_html _version_id
+				unset _record _version_api _version_html
 				case "${_version}" in
 					''|null)
 						jo status='1' id="${2}" | jq >"${_cac_path}/${2}_${1}-new.js"
