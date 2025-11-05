@@ -2,7 +2,7 @@
 
 
 readonly _command="${0##*/}"
-readonly _c_version='0.3.3'
+readonly _c_version='0.3.4'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
@@ -111,6 +111,9 @@ _get_app_info(){
 		if [ -z "$(echo "${_price}" | tr -dc '1-9')" ]; then
 			unset _price
 		fi
+        if [ ! -f "${_record_path}/${2}_${1}.csv" ]; then
+            echo 'Version,id' >"${_record_path}/${2}_${1}.csv"
+        fi
 		if ! grep -q "${_record}" "${_record_path}/${2}_${1}.csv" 2>>/dev/null; then
 			echo "${_record}" >>"${_record_path}/${2}_${1}.csv"
 		fi
