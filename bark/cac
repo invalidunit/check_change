@@ -2,7 +2,7 @@
 
 
 readonly _command="${0##*/}"
-readonly _c_version='0.3.1'
+readonly _c_version='0.3.2'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
@@ -105,7 +105,7 @@ _get_app_info(){
 		_image="$(jq ".data[].attributes.platformAttributes.ios.artwork.url" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
 		_image="${_image%\/*}/100x100bb.jpg"
 		_price="$(jq ".data[].attributes.platformAttributes.ios.offers[0].currencyCode" "${_cac_path}/${2}_${1}-new.js" | _remove_colon) $(jq ".data[].attributes.platformAttributes.ios.offers[0].priceString" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
-		_record="${_version},${_version_id},${_version_release_timestamp}"
+		_record="${_version},${_version_id}"
 		if ! grep -q "${_record}" "${_record_path}/${2}_${1}.csv" 2>>/dev/null; then
 			echo "${_record}" >>"${_record_path}/${2}_${1}.csv"
 		fi
