@@ -2,7 +2,7 @@
 
 
 readonly _command="${0##*/}"
-readonly _c_version='0.3.4'
+readonly _c_version='0.3.5'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
@@ -234,10 +234,27 @@ while [ "${i}" -lt "${i_max}" ]; do
 				rm -f "${_cac_path}/${_id}_${_area}-new.js"
 				;;
 			2)
-				echo '[=] find update, new app info has been cached'
-				rm -f "${_cac_path}/${_id}_${_area}.js" "${_cac_path}/${_id}_${_area}.del"
-				mv "${_cac_path}/${_id}_${_area}-new.js" "${_cac_path}/${_id}_${_area}.js"
-				_message="$(echo "${_message_up}" | sed "s#app_bundle#${_bundle}#g" | sed "s#app_id#${_id}#g" | sed "s#app_name#${_name}#g" | sed "s#app_version_id#${_version_id}#g" | sed "s#app_version#${_version}#g" | sed "s#app_price#${_price}#g")"
+				echo '[=] May have been updated'
+				if [ "${_record}" = "$(tail -n 1 "${_record_path}/${_id}_${_area}.csv")" ]; then
+					rm -f "${_cac_path}/${_id}_${_area}.js" "${_cac_path}/${_id}_${_area}.del" "${_cac_path}/${_id}_${_area}.up"
+					mv "${_cac_path}/${_id}_${_area}-new.js" "${_cac_path}/${_id}_${_area}.js"
+					_message="$(echo "${_message_up}" | sed "s#app_bundle#${_bundle}#g" | sed "s#app_id#${_id}#g" | sed "s#app_name#${_name}#g" | sed "s#app_version_id#${_version_id}#g" | sed "s#app_version#${_version}#g" | sed "s#app_price#${_price}#g")"
+				else
+					if [ -f "${_cac_path}/${_id}_${_area}.up" ]; then
+						_check="$(cat "${_cac_path}/${_id}_${_area}.up")"
+						if echo "$((_check+1))" | grep -q '^10$'; then
+							rm -f "${_cac_path}/${_id}_${_area}.js" "${_cac_path}/${_id}_${_area}.del" "${_cac_path}/${_id}_${_area}.up"
+							mv "${_cac_path}/${_id}_${_area}-new.js" "${_cac_path}/${_id}_${_area}.js"
+							_message="$(echo "${_message_up}" | sed "s#app_bundle#${_bundle}#g" | sed "s#app_id#${_id}#g" | sed "s#app_name#${_name}#g" | sed "s#app_version_id#${_version_id}#g" | sed "s#app_version#${_version}#g" | sed "s#app_price#${_price}#g")"
+						else
+							echo -n "$((_check+1))" >"${_cac_path}/${_id}_${_area}.up"
+							echo "[=] It has been detected \"$(cat "${_cac_path}/${_id}_${_area}.up")\" times that version change has occurred..."
+						fi
+					else
+						echo -n '1' >"${_cac_path}/${_id}_${_area}.up"
+						echo "[=] It has been detected \"$(cat "${_cac_path}/${_id}_${_area}.up")\" times that version change has occurred..."
+					fi
+				fi
 				;;
 			1)
 				echo '[=] app info has been cached'
