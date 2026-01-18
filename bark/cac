@@ -2,7 +2,7 @@
 
 
 readonly _command="${0##*/}"
-readonly _c_version='0.3.5'
+readonly _c_version='0.3.6'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
@@ -74,19 +74,6 @@ _get_package_version(){
 
 _user_agent="$(_get_package_version 'curl') $(uname -s)/$(uname -r) $(_get_package_version "${_now_sh}") ${_command}/${_c_version}(shell script)"
 
-_remove_colon(){
-	if [ -n "${1}" ]; then
-		echo "${1}" | sed 's#^"##' | sed 's#"$##'
-	else
-		while IFS= read -r line || [ -n "$line" ]; do
-			_incoming="$_incoming$line"'\n'
-		done
-		_incoming="$(printf '%b\n' "${_incoming}")"
-		echo "${_incoming}" | sed 's#^"##' | sed 's#"$##'
-	fi
-	unset _incoming
-}
-
 _randnum(){
 	if [ -z "${2}" ]; then
 		tr -dc 'A-Za-z0-9' < /dev/urandom 2>>/dev/null | head -c "${1}"
@@ -97,14 +84,14 @@ _randnum(){
 
 _get_app_info(){
 	if curl --max-time 30 -s -L -H "user-agent: ${_user_agent}" -H 'accept: */*' -H "authorization: ${_authorization}" -H 'origin: https://apps.apple.com' "https://amp-api-edge.apps.apple.com/v1/catalog/${1}/apps/${2}?platform=iphone&additionalPlatforms=appletv%2Cipad%2Ciphone%2Cmac%2CrealityDevice%2Cwatch&extend=accessibility%2CaccessibilityDetails%2CageRating%2CbackgroundAssetsInfo%2CbackgroundAssetsInfoWithOptional%2CcustomArtwork%2CcustomDeepLink%2CcustomIconArtwork%2Cdescription%2CexpectedReleaseDateDisplayFormat%2CfileSizeByDevice%2CgameDisplayName%2CiconArtwork%2CinstallSizeByDeviceInBytes%2CminiGamesDeepLink%2CminimumOSVersion%2CremoteControllerRequirement%2CrequirementsByDeviceFamily%2CversionHistory&include%5Bapps%5D=app-events&availableIn%5Bapp-events%5D=future&sparseLimit%5Bapps%3Acustomers-also-bought-apps%5D=0&sparseLimit%5Bapps%3Adeveloper-other-apps%5D=0&sparseLimit%5Bapps%3Arelated-editorial-items%5D=0&limit%5Breviews%5D=1" | jq 1>"${_cac_path}/${2}_${1}-new.js"; then
-		_bundle="$(jq ".data[].attributes.platformAttributes.ios.bundleId" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
-		_version="$(jq ".data[].attributes.platformAttributes.ios.versionHistory[0].versionDisplay" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
-		_version_id="$(jq ".data[].attributes.platformAttributes.ios.externalVersionId" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
-		_version_release_timestamp="$(jq ".data[].attributes.platformAttributes.ios.versionHistory[0].releaseTimestamp" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
-		_name="$(jq ".data[].attributes.name" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
-		_image="$(jq ".data[].attributes.platformAttributes.ios.artwork.url" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
+		_bundle="$(jq -r ".data[].attributes.platformAttributes.ios.bundleId" "${_cac_path}/${2}_${1}-new.js")"
+		_version="$(jq -r ".data[].attributes.platformAttributes.ios.versionHistory[0].versionDisplay" "${_cac_path}/${2}_${1}-new.js")"
+		_version_id="$(jq -r ".data[].attributes.platformAttributes.ios.externalVersionId" "${_cac_path}/${2}_${1}-new.js")"
+		_version_release_timestamp="$(jq -r ".data[].attributes.platformAttributes.ios.versionHistory[0].releaseTimestamp" "${_cac_path}/${2}_${1}-new.js")"
+		_name="$(jq -r ".data[].attributes.name" "${_cac_path}/${2}_${1}-new.js")"
+		_image="$(jq -r ".data[].attributes.platformAttributes.ios.artwork.url" "${_cac_path}/${2}_${1}-new.js")"
 		_image="${_image%\/*}/100x100bb.jpg"
-		_price="$(jq ".data[].attributes.platformAttributes.ios.offers[0].currencyCode" "${_cac_path}/${2}_${1}-new.js" | _remove_colon) $(jq ".data[].attributes.platformAttributes.ios.offers[0].priceString" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
+		_price="$(jq -r ".data[].attributes.platformAttributes.ios.offers[0].currencyCode" "${_cac_path}/${2}_${1}-new.js") $(jq -r ".data[].attributes.platformAttributes.ios.offers[0].priceString" "${_cac_path}/${2}_${1}-new.js")"
 		_record="${_version},${_version_id}"
 		if [ -z "$(echo "${_price}" | tr -dc '1-9')" ]; then
 			unset _price
@@ -115,7 +102,7 @@ _get_app_info(){
 		if ! grep -q "${_record}" "${_record_path}/${2}_${1}.csv" 2>>/dev/null; then
 			echo "${_record}" >>"${_record_path}/${2}_${1}.csv"
 		fi
-		if jq ".data[].id" "${_cac_path}/${2}_${1}-new.js" | _remove_colon | grep -q "^${2}$"; then
+		if jq -r ".data[].id" "${_cac_path}/${2}_${1}-new.js" | grep -q "^${2}$"; then
 			jo status='0' id="${2}" bundle="${_bundle}" name="${_name}" version="${_version}" version_id="${_version_id}" version_release_timestamp="${_version_release_timestamp}" price="${_price}" image="${_image}" | jq >"${_cac_path}/${2}_${1}-new.js"
 		else
 			jo status='1' id="${2}" | jq >"${_cac_path}/${2}_${1}-new.js"
@@ -125,126 +112,126 @@ _get_app_info(){
 
 
 echo '[*] Reading configuration file...'
-_bark_server="$(echo "${_config}" | jq ".bark.server" | _remove_colon | sed 's#^null$##')"
+_bark_server="$(printf '%s\n' "${_config}" | jq -r ".bark.server" | sed 's#^null$##')"
 if ! echo "${_bark_server}" | grep -Fq '.'; then
 	unset _bark_server
 else
 	_bark_server="-s2 ${_bark_server}"
 fi
-_root_bark_title_cache="$(echo "${_config}" | jq ".bark.title.cache" | _remove_colon | sed 's#^null$##')"
+_root_bark_title_cache="$(printf '%s\n' "${_config}" | jq -r ".bark.title.cache" | sed 's#^null$##')"
 if [ -z "${_root_bark_title_cache}" ]; then
 	_root_bark_title_cache='app_name'
 fi
-_root_bark_title_up="$(echo "${_config}" | jq ".bark.title.up" | _remove_colon | sed 's#^null$##')"
+_root_bark_title_up="$(printf '%s\n' "${_config}" | jq -r ".bark.title.up" | sed 's#^null$##')"
 if [ -z "${_root_bark_title_up}" ]; then
 	_root_bark_title_up='app_name'
 fi
-_root_bark_title_del="$(echo "${_config}" | jq ".bark.title.del" | _remove_colon | sed 's#^null$##')"
+_root_bark_title_del="$(printf '%s\n' "${_config}" | jq -r ".bark.title.del" | sed 's#^null$##')"
 if [ -z "${_root_bark_title_del}" ]; then
 	_root_bark_title_del='app_name'
 fi
-_root_bark_body_cache="$(echo "${_config}" | jq ".bark.body.cache" | _remove_colon | sed 's#^null$##')"
+_root_bark_body_cache="$(printf '%s\n' "${_config}" | jq -r ".bark.body.cache" | sed 's#^null$##')"
 if [ -z "${_root_bark_body_cache}" ]; then
 	_root_bark_body_cache='Now Version: app_version_new'
 fi
-_root_bark_body_up="$(echo "${_config}" | jq ".bark.body.up" | _remove_colon | sed 's#^null$##')"
+_root_bark_body_up="$(printf '%s\n' "${_config}" | jq -r ".bark.body.up" | sed 's#^null$##')"
 if [ -z "${_root_bark_body_up}" ]; then
 	_root_bark_body_up='app_version_old -> app_version_new'
 fi
-_root_bark_body_del="$(echo "${_config}" | jq ".bark.body.del" | _remove_colon | sed 's#^null$##')"
+_root_bark_body_del="$(printf '%s\n' "${_config}" | jq -r ".bark.body.del" | sed 's#^null$##')"
 if [ -z "${_root_bark_body_del}" ]; then
 	_root_bark_body_del='May have been removed'
 fi
-_root_bark_level="$(echo "${_config}" | jq ".bark.level" | _remove_colon | sed 's#^null$##')"
+_root_bark_level="$(printf '%s\n' "${_config}" | jq -r ".bark.level" | sed 's#^null$##')"
 if [ -z "${_root_bark_level}" ]; then
 	_root_bark_level='active'
 fi
-_root_bark_is_archive="$(echo "${_config}" | jq ".bark.is_archive" | _remove_colon | sed 's#^null$##')"
+_root_bark_is_archive="$(printf '%s\n' "${_config}" | jq -r ".bark.is_archive" | sed 's#^null$##')"
 if [ -z "${_root_bark_is_archive}" ]; then
 	_root_bark_is_archive='0'
 fi
-_root_bark_group="$(echo "${_config}" | jq ".bark.group" | _remove_colon | sed 's#^null$##')"
+_root_bark_group="$(printf '%s\n' "${_config}" | jq -r ".bark.group" | sed 's#^null$##')"
 if [ -z "${_root_bark_group}" ]; then
 	_root_bark_group='com.nan.cac'
 fi
-_root_bark_sound="$(echo "${_config}" | jq ".bark.sound" | _remove_colon | sed 's#^null$##')"
+_root_bark_sound="$(printf '%s\n' "${_config}" | jq -r ".bark.sound" | sed 's#^null$##')"
 if [ -z "${_root_bark_sound}" ]; then
 	_root_bark_sound='healthnotification'
 fi
 echo '[*] Done'
-if [ "$(echo "${_config}" | jq ".bark.Hello_World" | _remove_colon)" = '1' ]; then
+if [ "$(printf '%s\n' "${_config}" | jq -r ".bark.Hello_World")" = '1' ]; then
 	echo '[*] Hello World'
 	echo "$(bark -X POST ${_key} ${_bark_server} -g "${_bark_group}-helloworld" -1 'Hello World' -2 'This is a test message from cac' -i 'https://invalidunit.github.io/repo/CydiaIcon@3x.png')"
 fi
 
 
-if echo "${_config}" | jq ".enable" | _remove_colon | grep -q '0'; then
+if printf '%s\n' "${_config}" | jq ".enable" | grep -q '0'; then
 	exit 0
 fi
 i='0'
-i_max="$(echo "${_config}" | jq ".app|length")"
+i_max="$(printf '%s\n' "${_config}" | jq ".app|length")"
 while [ "${i}" -lt "${i_max}" ]; do
 	_sleep="$(_randnum '0-2' '1')$(_randnum '0-9' '1')"
 	echo "[*] wait \"${_sleep}s\""
 	sleep "${_sleep}"
 	unset _sleep
-	_app="$(echo "${_config}" | jq ".app[${i}].url" | _remove_colon)"
+	_app="$(printf '%s\n' "${_config}" | jq -r ".app[${i}].url")"
 	_id="${_app##*/id}"
 	_id="${_id%%\?*}"
 	_area="${_app%%/app/*}"
 	_area="${_area##*apps.apple.com/}"
-	if ! echo "${_config}" | jq ".app[${i}].enable" | _remove_colon | grep -q '0'; then
+	if ! printf '%s\n' "${_config}" | jq ".app[${i}].enable" | grep -q '0'; then
 		echo "[*] now check \"${_id}\""
 		echo '[*] Check this id for custom settings...'
-		if echo "${_config}" | jq ".app[${i}].bark.title.cache" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.title.cache" | grep -q 'null'; then
 			_bark_title_cache="${_root_bark_title_cache}"
 		else
-			_bark_title_cache="$(echo "${_config}" | jq ".app[${i}].bark.title.cache" | _remove_colon)"
+			_bark_title_cache="$(printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.title.cache")"
 		fi
-		if echo "${_config}" | jq ".app[${i}].bark.title.up" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.title.up" | grep -q 'null'; then
 			_bark_title_up="${_root_bark_title_up}"
 		else
-			_bark_title_up="$(echo "${_config}" | jq ".app[${i}].bark.title.up" | _remove_colon)"
+			_bark_title_up="$(printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.title.up")"
 		fi
-		if echo "${_config}" | jq ".app[${i}].bark.title.del" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.title.del" | grep -q 'null'; then
 			_bark_title_del="${_root_bark_title_del}"
 		else
-			_bark_title_del="$(echo "${_config}" | jq ".app[${i}].bark.title.del" | _remove_colon)"
+			_bark_title_del="$(printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.title.del")"
 		fi
-		if echo "${_config}" | jq ".app[${i}].bark.body.cache" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.body.cache" | grep -q 'null'; then
 			_bark_body_cache="${_root_bark_body_cache}"
 		else
-			_bark_body_cache="$(echo "${_config}" | jq ".app[${i}].bark.body.cache" | _remove_colon)"
+			_bark_body_cache="$(printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.body.cache")"
 		fi
-		if echo "${_config}" | jq ".app[${i}].bark.body.up" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.body.up" | grep -q 'null'; then
 			_bark_body_up="${_root_bark_body_up}"
 		else
-			_bark_body_up="$(echo "${_config}" | jq ".app[${i}].bark.body.up" | _remove_colon)"
+			_bark_body_up="$(printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.body.up")"
 		fi
-		if echo "${_config}" | jq ".app[${i}].bark.body.del" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.body.del" | grep -q 'null'; then
 			_bark_body_del="${_root_bark_body_del}"
 		else
-			_bark_body_del="$(echo "${_config}" | jq ".app[${i}].bark.body.del" | _remove_colon)"
+			_bark_body_del="$(printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.body.del")"
 		fi
-		if echo "${_config}" | jq ".app[${i}].bark.level" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.level" | grep -q 'null'; then
 			_bark_level="${_root_bark_level}"
 		else
-			_bark_level="$(echo "${_config}" | jq ".app[${i}].bark.level" | _remove_colon)"
+			_bark_level="$(printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.level")"
 		fi
-		if echo "${_config}" | jq ".app[${i}].bark.is_archive" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.is_archive" | grep -q 'null'; then
 			_bark_is_archive="${_root_bark_is_archive}"
 		else
-			_bark_is_archive="$(echo "${_config}" | jq ".app[${i}].bark.is_archive" | _remove_colon)"
+			_bark_is_archive="$(printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.is_archive")"
 		fi
-		if echo "${_config}" | jq ".app[${i}].bark.group" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.group" | grep -q 'null'; then
 			_bark_group="${_root_bark_group}"
 		else
-			_bark_group="$(echo "${_config}" | jq ".app[${i}].bark.group" | _remove_colon)"
+			_bark_group="$(printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.group")"
 		fi
-		if echo "${_config}" | jq ".app[${i}].bark.sound" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.sound" | grep -q 'null'; then
 			_bark_sound="${_root_bark_sound}"
 		else
-			_bark_sound="$(echo "${_config}" | jq ".app[${i}].bark.sound" | _remove_colon)"
+			_bark_sound="$(printf '%s\n' "${_config}" | jq -r ".app[${i}].bark.sound")"
 		fi
 		echo '[*] Done'
 		_get_app_info "${_area}" "${_id}"
@@ -256,20 +243,20 @@ while [ "${i}" -lt "${i_max}" ]; do
 					_status='0'
 				else
 					if [ ! "$(jq ".status" "${_cac_path}/${_id}_${_area}-new.js")" = '0' ]; then
-						_bundle="$(jq ".bundle" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
-						_name="$(jq ".name" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
-						_version="$(jq ".version" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
+						_bundle="$(jq -r ".bundle" "${_cac_path}/${_id}_${_area}.js")"
+						_name="$(jq -r ".name" "${_cac_path}/${_id}_${_area}.js")"
+						_version="$(jq -r ".version" "${_cac_path}/${_id}_${_area}.js")"
 						_status='3'
 					else
 						if [ ! "$(jq ".version" "${_cac_path}/${_id}_${_area}.js")" = "$(jq ".version" "${_cac_path}/${_id}_${_area}-new.js")" ]; then
-							_version="$(jq ".version" "${_cac_path}/${_id}_${_area}.js" | _remove_colon) -> $(jq ".version" "${_cac_path}/${_id}_${_area}-new.js" | _remove_colon)"
+							_version="$(jq -r ".version" "${_cac_path}/${_id}_${_area}.js") -> $(jq -r ".version" "${_cac_path}/${_id}_${_area}-new.js")"
 						else
-							_version="$(jq ".version" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
+							_version="$(jq -r ".version" "${_cac_path}/${_id}_${_area}.js")"
 						fi
 						if [ ! "$(jq ".price" "${_cac_path}/${_id}_${_area}.js")" = "$(jq ".price" "${_cac_path}/${_id}_${_area}-new.js")" ]; then
-							_price="$(jq ".price" "${_cac_path}/${_id}_${_area}.js" | _remove_colon) -> $(jq ".price" "${_cac_path}/${_id}_${_area}-new.js" | _remove_colon)"
+							_price="$(jq -r ".price" "${_cac_path}/${_id}_${_area}.js") -> $(jq -r ".price" "${_cac_path}/${_id}_${_area}-new.js")"
 						else
-							_price="$(jq ".price" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
+							_price="$(jq -r ".price" "${_cac_path}/${_id}_${_area}.js")"
 						fi
 						_status='2'
 					fi
@@ -294,7 +281,7 @@ while [ "${i}" -lt "${i_max}" ]; do
 					if echo "$((_check+1))" | grep -q '^10$'; then
 						_bark_title="$(echo "${_bark_title_del}" | sed "s#app_bundle#${_bundle}#g" | sed "s#app_id#id${_id}#g" | sed "s#app_name#${_name}#g" | sed "s#app_version#${_version}#g" | sed "s#app_price#${_price}#g")"
 						_bark_body="$(echo "${_bark_body_del}" | sed "s#app_bundle#${_bundle}#g" | sed "s#app_id#id${_id}#g" | sed "s#app_name#${_name}#g" | sed "s#app_version#${_version}#g" | sed "s#app_price#${_price}#g")"
-						_bark_icon="$(jq ".image" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
+						_bark_icon="$(jq -r ".image" "${_cac_path}/${_id}_${_area}.js")"
 						rm -f "${_cac_path}/${_id}_${_area}.js" "${_cac_path}/${_id}_${_area}-new.js" "${_cac_path}/${_id}_${_area}.del"
 					else
 						echo -n "$((_check+1))" >"${_cac_path}/${_id}_${_area}.del"
@@ -313,7 +300,7 @@ while [ "${i}" -lt "${i_max}" ]; do
 					mv "${_cac_path}/${_id}_${_area}-new.js" "${_cac_path}/${_id}_${_area}.js"
 					_bark_title="$(echo "${_bark_title_up}" | sed "s#app_bundle#${_bundle}#g" | sed "s#app_id#id${_id}#g" | sed "s#app_name#${_name}#g" | sed "s#app_version#${_version}#g" | sed "s#app_price#${_price}#g")"
 					_bark_body="$(echo "${_bark_body_up}" | sed "s#app_bundle#${_bundle}#g" | sed "s#app_id#${_id}#g" | sed "s#app_name#${_name}#g" | sed "s#app_version#${_version}#g" | sed "s#app_price#${_price}#g")"
-					_bark_icon="$(jq ".image" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
+					_bark_icon="$(jq -r ".image" "${_cac_path}/${_id}_${_area}.js")"
 				else
 					if [ -f "${_cac_path}/${_id}_${_area}.up" ]; then
 						_check="$(cat "${_cac_path}/${_id}_${_area}.up")"
@@ -322,7 +309,7 @@ while [ "${i}" -lt "${i_max}" ]; do
 							mv "${_cac_path}/${_id}_${_area}-new.js" "${_cac_path}/${_id}_${_area}.js"
 							_bark_title="$(echo "${_bark_title_up}" | sed "s#app_bundle#${_bundle}#g" | sed "s#app_id#id${_id}#g" | sed "s#app_name#${_name}#g" | sed "s#app_version#${_version}#g" | sed "s#app_price#${_price}#g")"
 							_bark_body="$(echo "${_bark_body_up}" | sed "s#app_bundle#${_bundle}#g" | sed "s#app_id#${_id}#g" | sed "s#app_name#${_name}#g" | sed "s#app_version#${_version}#g" | sed "s#app_price#${_price}#g")"
-							_bark_icon="$(jq ".image" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
+							_bark_icon="$(jq -r ".image" "${_cac_path}/${_id}_${_area}.js")"
 						else
 							echo -n "$((_check+1))" >"${_cac_path}/${_id}_${_area}.up"
 							echo "[=] It has been detected \"$(cat "${_cac_path}/${_id}_${_area}.up")\" times that version change has occurred..."
@@ -339,7 +326,7 @@ while [ "${i}" -lt "${i_max}" ]; do
 				mv "${_cac_path}/${_id}_${_area}-new.js" "${_cac_path}/${_id}_${_area}.js"
 				_bark_title="$(echo "${_bark_title_cache}" | sed "s#app_bundle#${_bundle}#g" | sed "s#app_id#id${_id}#g" | sed "s#app_name#${_name}#g" | sed "s#app_version#${_version}#g" | sed "s#app_price#${_price}#g")"
 				_bark_body="$(echo "${_bark_body_cache}" | sed "s#app_bundle#${_bundle}#g" | sed "s#app_id#${_id}#g" | sed "s#app_name#${_name}#g" | sed "s#app_version#${_version}#g" | sed "s#app_price#${_price}#g")"
-				_bark_icon="$(jq ".image" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
+				_bark_icon="$(jq -r ".image" "${_cac_path}/${_id}_${_area}.js")"
 				;;
 			0)
 				echo '[=] nothing happened'
