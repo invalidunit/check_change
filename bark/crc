@@ -2,7 +2,7 @@
 
 
 readonly _command="${0##*/}"
-readonly _c_version='0.3.0-1'
+readonly _c_version='0.3.1'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
@@ -34,19 +34,6 @@ if ! which sw_vers 2>>/dev/null 1>>/dev/null; then
 		unset _incoming
 	}
 fi
-
-_remove_colon(){
-	if [ -n "${1}" ]; then
-		echo "${1}" | sed 's#^"##' | sed 's#"$##'
-	else
-		while IFS= read -r line || [ -n "$line" ]; do
-			_incoming="$_incoming$line"'\n'
-		done
-		_incoming="$(printf '%b\n' "${_incoming}")"
-		echo "${_incoming}" | sed 's#^"##' | sed 's#"$##'
-	fi
-	unset _incoming
-}
 
 _randnum(){
 	if [ -z "${2}" ]; then
@@ -81,120 +68,120 @@ END {
 }
 
 echo '[*] Reading configuration file...'
-_bark_server="$(echo "${_config}" | jq ".bark.server" | _remove_colon | sed 's#^null$##')"
+_bark_server="$(printf '%s\n' "${_config}" | jq -r ".bark.server" | sed 's#^null$##')"
 if ! echo "${_bark_server}" | grep -Fq '.'; then
 	unset _bark_server
 else
 	_bark_server="-s2 ${_bark_server}"
 fi
-_root_bark_title="$(echo "${_config}" | jq ".bark.title" | _remove_colon | sed 's#^null$##')"
+_root_bark_title="$(printf '%s\n' "${_config}" | jq -r ".bark.title" | sed 's#^null$##')"
 if [ -z "${_root_bark_title}" ]; then
 	_root_bark_title='Repo has changed'
 fi
-_root_bark_body_up="$(echo "${_config}" | jq ".bark.body.up" | _remove_colon | sed 's#^null$##')"
+_root_bark_body_up="$(printf '%s\n' "${_config}" | jq -r ".bark.body.up" | sed 's#^null$##')"
 if [ -z "${_root_bark_body_up}" ]; then
 	_root_bark_body_up='The following packages have been updated:'
 fi
-_root_bark_body_add="$(echo "${_config}" | jq ".bark.body.add" | _remove_colon | sed 's#^null$##')"
+_root_bark_body_add="$(printf '%s\n' "${_config}" | jq -r ".bark.body.add" | sed 's#^null$##')"
 if [ -z "${_root_bark_body_add}" ]; then
 	_root_bark_body_add='The following packages have been added:'
 fi
-_root_bark_body_del="$(echo "${_config}" | jq ".bark.body.del" | _remove_colon | sed 's#^null$##')"
+_root_bark_body_del="$(printf '%s\n' "${_config}" | jq -r ".bark.body.del" | sed 's#^null$##')"
 if [ -z "${_root_bark_body_del}" ]; then
 	_root_bark_body_del='The following packages have been removed:'
 fi
-_root_bark_level="$(echo "${_config}" | jq ".bark.level" | _remove_colon | sed 's#^null$##')"
+_root_bark_level="$(printf '%s\n' "${_config}" | jq -r ".bark.level" | sed 's#^null$##')"
 if [ -z "${_root_bark_level}" ]; then
 	_root_bark_level='active'
 fi
-_root_bark_is_archive="$(echo "${_config}" | jq ".bark.is_archive" | _remove_colon | sed 's#^null$##')"
+_root_bark_is_archive="$(printf '%s\n' "${_config}" | jq -r ".bark.is_archive" | sed 's#^null$##')"
 if [ -z "${_root_bark_is_archive}" ]; then
 	_root_bark_is_archive='0'
 fi
-_root_bark_group="$(echo "${_config}" | jq ".bark.group" | _remove_colon | sed 's#^null$##')"
+_root_bark_group="$(printf '%s\n' "${_config}" | jq -r ".bark.group" | sed 's#^null$##')"
 if [ -z "${_root_bark_group}" ]; then
 	_root_bark_group='com.nan.crc'
 fi
-_root_bark_sound="$(echo "${_config}" | jq ".bark.sound" | _remove_colon | sed 's#^null$##')"
+_root_bark_sound="$(printf '%s\n' "${_config}" | jq -r ".bark.sound" | sed 's#^null$##')"
 if [ -z "${_root_bark_sound}" ]; then
 	_root_bark_sound='healthnotification'
 fi
-_root_filter_architecture="$(echo "${_config}" | jq ".filter_architecture" | _remove_colon | sed 's#^null$##')"
+_root_filter_architecture="$(printf '%s\n' "${_config}" | jq -r ".filter_architecture" | sed 's#^null$##')"
 if [ -z "${_root_filter_architecture}" ]; then
 	_root_filter_architecture='all'
 fi
-_root_use_name="$(echo "${_config}" | jq ".use_name" | _remove_colon | sed 's#^null$##')"
+_root_use_name="$(printf '%s\n' "${_config}" | jq -r ".use_name" | sed 's#^null$##')"
 if [ -z "${_root_use_name}" ]; then
 	_root_use_name='0'
 fi
 echo '[*] Done'
-if [ "$(echo "${_config}" | jq ".bark.Hello_World" | _remove_colon)" = '1' ]; then
+if [ "$(printf '%s\n' "${_config}" | jq -r ".bark.Hello_World")" = '1' ]; then
 	echo '[*] Hello World'
 	bark -X POST ${_key} ${_bark_server} -g "${_bark_group}-helloworld" -1 'Hello World' -2 'This is a test message from crc' -i 'https://invalidunit.github.io/repo/CydiaIcon@3x.png'
 fi
 
 
-if echo "${_config}" | jq ".enable" | _remove_colon | grep -q '0'; then
+if printf '%s\n' "${_config}" | jq ".enable" | grep -q '0'; then
 	exit 0
 fi
 i='0'
-i_max="$(echo "${_config}" | jq ".source|length")"
+i_max="$(printf '%s\n' "${_config}" | jq ".source | length")"
 while [ "${i}" -lt "${i_max}" ]; do
-	if ! echo "${_config}" | jq ".source[${i}].enable" | _remove_colon | grep -q '0'; then
-		_repo="$(echo "${_config}" | jq ".source[${i}].url" | _remove_colon | sed 's#/$##')"
+	if ! printf '%s\n' "${_config}" | jq ".source[${i}].enable" | grep -q '0'; then
+		_repo="$(printf '%s\n' "${_config}" | jq -r ".source[${i}].url" | sed 's#/$##')"
 		_host="${_repo##*://}"
 		_host="${_host%%/*}"
 		echo "[*] now check \"${_repo}/\""
 		echo '[*] Check this repo for custom settings...'
-		if echo "${_config}" | jq ".source[${i}].bark.title" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.title" | grep -q 'null'; then
 			_bark_title="${_root_bark_title}"
 		else
-			_bark_title="$(echo "${_config}" | jq ".source[${i}].bark.title" | _remove_colon)"
+			_bark_title="$(printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.title")"
 		fi
-		if echo "${_config}" | jq ".source[${i}].bark.body.add" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.body.add" | grep -q 'null'; then
 			_bark_body_add="${_root_bark_body_add}"
 		else
-			_bark_body_add="$(echo "${_config}" | jq ".source[${i}].bark.body.add" | _remove_colon)"
+			_bark_body_add="$(printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.body.add")"
 		fi
-		if echo "${_config}" | jq ".source[${i}].bark.body.up" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.body.up" | grep -q 'null'; then
 			_bark_body_up="${_root_bark_body_up}"
 		else
-			_bark_body_up="$(echo "${_config}" | jq ".source[${i}].bark.body.up" | _remove_colon)"
+			_bark_body_up="$(printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.body.up")"
 		fi
-		if echo "${_config}" | jq ".source[${i}].bark.body.del" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.body.del" | grep -q 'null'; then
 			_bark_body_del="${_root_bark_body_del}"
 		else
-			_bark_body_del="$(echo "${_config}" | jq ".source[${i}].bark.body.del" | _remove_colon)"
+			_bark_body_del="$(printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.body.del")"
 		fi
-		if echo "${_config}" | jq ".source[${i}].bark.level" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.level" | grep -q 'null'; then
 			_bark_level="${_root_bark_level}"
 		else
-			_bark_level="$(echo "${_config}" | jq ".source[${i}].bark.level" | _remove_colon)"
+			_bark_level="$(printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.level")"
 		fi
-		if echo "${_config}" | jq ".source[${i}].bark.is_archive" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.is_archive" | grep -q 'null'; then
 			_bark_is_archive="${_root_bark_is_archive}"
 		else
-			_bark_is_archive="$(echo "${_config}" | jq ".source[${i}].bark.is_archive" | _remove_colon)"
+			_bark_is_archive="$(printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.is_archive")"
 		fi
-		if echo "${_config}" | jq ".source[${i}].bark.group" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.group" | grep -q 'null'; then
 			_bark_group="${_root_bark_group}"
 		else
-			_bark_group="$(echo "${_config}" | jq ".source[${i}].bark.group" | _remove_colon)"
+			_bark_group="$(printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.group")"
 		fi
-		if echo "${_config}" | jq ".source[${i}].bark.sound" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.sound" | grep -q 'null'; then
 			_bark_sound="${_root_bark_sound}"
 		else
-			_bark_sound="$(echo "${_config}" | jq ".source[${i}].bark.sound" | _remove_colon)"
+			_bark_sound="$(printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.sound")"
 		fi
-		if echo "${_config}" | jq ".source[${i}].filter_architecture" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".source[${i}].filter_architecture" | grep -q 'null'; then
 			_filter_architecture="${_root_filter_architecture}"
 		else
-			_filter_architecture="$(echo "${_config}" | jq ".source[${i}].filter_architecture" | _remove_colon)"
+			_filter_architecture="$(printf '%s\n' "${_config}" | jq -r ".source[${i}].filter_architecture")"
 		fi
-		if echo "${_config}" | jq ".source[${i}].use_name" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".source[${i}].use_name" | grep -q 'null'; then
 			_use_name="${_root_use_name}"
 		else
-			_use_name="$(echo "${_config}" | jq ".source[${i}].use_name" | _remove_colon)"
+			_use_name="$(printf '%s\n' "${_config}" | jq -r ".source[${i}].use_name")"
 		fi
 		echo '[*] Done'
 		echo '[*] now try to download "Packages"...'
@@ -352,7 +339,7 @@ ${_del}"
 						_bark_body="$(echo "${_bark_body}" | sed '1d')"
 						echo "${_bark_body}"
 					fi
-					if echo "${_config}" | jq ".source[${i}].bark.icon" | _remove_colon | grep -q 'null'; then
+					if printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.icon" | grep -q 'null'; then
 						echo '[*] now check repo icon'
 						if curl --max-time 30 --write-out '%{http_code}' --silent --output /dev/null "${_repo}/CydiaIcon@3x.png" -H "Host: ${_host}" -H "X-Unique-ID: 0000$(_randnum '0-9' '4')-$(_randnum '0-9' '15')E" -H 'Accept: */*' -H 'Connection: keep-alive' -H 'Accept-Encoding: gzip, deflate, br' -H "User-Agent: Sileo/1 CFNetwork/1331.0.7 Darwin/$(uname -r)" --compressed | grep -q '200'; then
 							_bark_icon="-i ${_repo}/CydiaIcon@3x.png"
@@ -365,7 +352,7 @@ ${_del}"
 						fi
 						echo '[*] Done'
 					else
-						_bark_icon="-i $(echo "${_config}" | jq ".source[${i}].bark.icon" | _remove_colon)"
+						_bark_icon="-i $(printf '%s\n' "${_config}" | jq -r ".source[${i}].bark.icon")"
 					fi
 					rm -f "${_package_file}.Release"
 					echo '[*] now try to download "Release"...'
@@ -395,3 +382,4 @@ ${_del}"
 	unset _bark_title _bark_body _bark_body_up _bark_body_add _bark_body_del _bark_group _bark_level _bark_is_archive _bark_sound _bark_icon _host _origin _up _add _del _package _version _filter_architecture _use_name
 	i="$((i+1))"
 done
+exit 0
