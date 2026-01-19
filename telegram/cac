@@ -2,7 +2,7 @@
 
 
 readonly _command="${0##*/}"
-readonly _c_version='0.3.5'
+readonly _c_version='0.3.6'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
@@ -74,19 +74,6 @@ _get_package_version(){
 
 _user_agent="$(_get_package_version 'curl') $(uname -s)/$(uname -r) $(_get_package_version "${_now_sh}") ${_command}/${_c_version}(shell script)"
 
-_remove_colon(){
-	if [ -n "${1}" ]; then
-		echo "${1}" | sed 's#^"##' | sed 's#"$##'
-	else
-		while IFS= read -r line || [ -n "$line" ]; do
-			_incoming="$_incoming$line"'\n'
-		done
-		_incoming="$(printf '%b\n' "${_incoming}")"
-		echo "${_incoming}" | sed 's#^"##' | sed 's#"$##'
-	fi
-	unset _incoming
-}
-
 _transform_url_encoded(){
 	printf %s "${1}" | jq -s -R -r @uri
 }
@@ -101,12 +88,12 @@ _randnum(){
 
 _get_app_info(){
 	if curl --max-time 30 -s -L -H "user-agent: ${_user_agent}" -H 'accept: */*' -H "authorization: ${_authorization}" -H 'origin: https://apps.apple.com' "https://amp-api-edge.apps.apple.com/v1/catalog/${1}/apps/${2}?platform=iphone&additionalPlatforms=appletv%2Cipad%2Ciphone%2Cmac%2CrealityDevice%2Cwatch&extend=accessibility%2CaccessibilityDetails%2CageRating%2CbackgroundAssetsInfo%2CbackgroundAssetsInfoWithOptional%2CcustomArtwork%2CcustomDeepLink%2CcustomIconArtwork%2Cdescription%2CexpectedReleaseDateDisplayFormat%2CfileSizeByDevice%2CgameDisplayName%2CiconArtwork%2CinstallSizeByDeviceInBytes%2CminiGamesDeepLink%2CminimumOSVersion%2CremoteControllerRequirement%2CrequirementsByDeviceFamily%2CversionHistory&include%5Bapps%5D=app-events&availableIn%5Bapp-events%5D=future&sparseLimit%5Bapps%3Acustomers-also-bought-apps%5D=0&sparseLimit%5Bapps%3Adeveloper-other-apps%5D=0&sparseLimit%5Bapps%3Arelated-editorial-items%5D=0&limit%5Breviews%5D=1" | jq 1>"${_cac_path}/${2}_${1}-new.js"; then
-		_bundle="$(jq ".data[].attributes.platformAttributes.ios.bundleId" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
-		_version="$(jq ".data[].attributes.platformAttributes.ios.versionHistory[0].versionDisplay" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
-		_version_id="$(jq ".data[].attributes.platformAttributes.ios.externalVersionId" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
-		_version_release_timestamp="$(jq ".data[].attributes.platformAttributes.ios.versionHistory[0].releaseTimestamp" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
-		_name="$(jq ".data[].attributes.name" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
-		_price="$(jq ".data[].attributes.platformAttributes.ios.offers[0].currencyCode" "${_cac_path}/${2}_${1}-new.js" | _remove_colon) $(jq ".data[].attributes.platformAttributes.ios.offers[0].priceString" "${_cac_path}/${2}_${1}-new.js" | _remove_colon)"
+		_bundle="$(jq -r ".data[].attributes.platformAttributes.ios.bundleId" "${_cac_path}/${2}_${1}-new.js")"
+		_version="$(jq -r ".data[].attributes.platformAttributes.ios.versionHistory[0].versionDisplay" "${_cac_path}/${2}_${1}-new.js")"
+		_version_id="$(jq -r ".data[].attributes.platformAttributes.ios.externalVersionId" "${_cac_path}/${2}_${1}-new.js")"
+		_version_release_timestamp="$(jq -r ".data[].attributes.platformAttributes.ios.versionHistory[0].releaseTimestamp" "${_cac_path}/${2}_${1}-new.js")"
+		_name="$(jq -r ".data[].attributes.name" "${_cac_path}/${2}_${1}-new.js")"
+		_price="$(jq -r ".data[].attributes.platformAttributes.ios.offers[0].currencyCode" "${_cac_path}/${2}_${1}-new.js") $(jq -r ".data[].attributes.platformAttributes.ios.offers[0].priceString" "${_cac_path}/${2}_${1}-new.js")"
 		_record="${_version},${_version_id}"
 		if [ -z "$(echo "${_price}" | tr -dc '1-9')" ]; then
 			unset _price
@@ -117,7 +104,7 @@ _get_app_info(){
 		if ! grep -q "${_record}" "${_record_path}/${2}_${1}.csv" 2>>/dev/null; then
 			echo "${_record}" >>"${_record_path}/${2}_${1}.csv"
 		fi
-		if jq ".data[].id" "${_cac_path}/${2}_${1}-new.js" | _remove_colon | grep -q "^${2}$"; then
+		if jq -r ".data[].id" "${_cac_path}/${2}_${1}-new.js" | grep -q "^${2}$"; then
 			jo status='0' id="${2}" bundle="${_bundle}" name="${_name}" version="${_version}" version_id="${_version_id}" version_release_timestamp="${_version_release_timestamp}" price="${_price}" image="${_image}" | jq >"${_cac_path}/${2}_${1}-new.js"
 		else
 			jo status='1' id="${2}" | jq >"${_cac_path}/${2}_${1}-new.js"
@@ -127,53 +114,53 @@ _get_app_info(){
 
 
 echo '[*] Reading configuration file...'
-_root_message_cache="$(echo "${_config}" | jq ".message.cache" | _remove_colon | sed 's#^null$##')"
+_root_message_cache="$(printf '%s\n' "${_config}" | jq -r ".message.cache" | sed 's#^null$##')"
 if [ -z "${_root_message_cache}" ]; then
 	_root_message_cache='app_name\nNow Version: app_version_new\nhas benn cache'
 fi
-_root_message_up="$(echo "${_config}" | jq ".message.up" | _remove_colon | sed 's#^null$##')"
+_root_message_up="$(printf '%s\n' "${_config}" | jq -r ".message.up" | sed 's#^null$##')"
 if [ -z "${_root_message_up}" ]; then
 	_root_message_up='app_name\nfind update:\napp_version'
 fi
-_root_message_del="$(echo "${_config}" | jq ".message.del" | _remove_colon | sed 's#^null$##')"
+_root_message_del="$(printf '%s\n' "${_config}" | jq -r ".message.del" | sed 's#^null$##')"
 if [ -z "${_root_message_del}" ]; then
 	_root_message_del='app_bundle\nMay have been removed\nThe latest version is:\napp_version'
 fi
 echo '[*] Done'
 
 
-if echo "${_config}" | jq ".enable" | _remove_colon | grep -q '0'; then
+if printf '%s\n' "${_config}" | jq ".enable" | grep -q '0'; then
 	exit 0
 fi
 i='0'
-i_max="$(echo "${_config}" | jq ".app|length")"
+i_max="$(printf '%s\n' "${_config}" | jq ".app|length")"
 while [ "${i}" -lt "${i_max}" ]; do
 	_sleep="$(_randnum '0-2' '1')$(_randnum '0-9' '1')"
 	echo "[*] wait \"${_sleep}s\""
 	sleep "${_sleep}"
 	unset _sleep
-	_app="$(echo "${_config}" | jq ".app[${i}].url" | _remove_colon)"
+	_app="$(printf '%s\n' "${_config}" | jq -r ".app[${i}].url")"
 	_id="${_app##*/id}"
 	_id="${_id%%\?*}"
 	_area="${_app%%/app/*}"
 	_area="${_area##*apps.apple.com/}"
-	if ! echo "${_config}" | jq ".app[${i}].enable" | _remove_colon | grep -q '0'; then
+	if ! printf '%s\n' "${_config}" | jq -r ".app[${i}].enable" | grep -q '0'; then
 		echo "[*] now check \"${_id}\""
 		echo '[*] Check this id for custom settings...'
-		if echo "${_config}" | jq ".app[${i}].message.cache" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".app[${i}].message.cache" | grep -q 'null'; then
 			_message_cache="${_root_message_cache}"
 		else
-			_message_cache="$(echo "${_config}" | jq ".app[${i}].message.cache" | _remove_colon)"
+			_message_cache="$(printf '%s\n' "${_config}" | jq -r ".app[${i}].message.cache")"
 		fi
-		if echo "${_config}" | jq ".app[${i}].message.up" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".app[${i}].message.up" | grep -q 'null'; then
 			_message_up="${_root_message_up}"
 		else
-			_message_up="$(echo "${_config}" | jq ".app[${i}].message.up" | _remove_colon)"
+			_message_up="$(printf '%s\n' "${_config}" | jq -r ".app[${i}].message.up")"
 		fi
-		if echo "${_config}" | jq ".app[${i}].message.del" | _remove_colon | grep -q 'null'; then
+		if printf '%s\n' "${_config}" | jq -r ".app[${i}].message.del" | grep -q 'null'; then
 			_message_del="${_root_message_del}"
 		else
-			_message_del="$(echo "${_config}" | jq ".app[${i}].message.del" | _remove_colon)"
+			_message_del="$(printf '%s\n' "${_config}" | jq -r ".app[${i}].message.del")"
 		fi
 		echo '[*] Done'
 		_get_app_info "${_area}" "${_id}"
@@ -185,20 +172,20 @@ while [ "${i}" -lt "${i_max}" ]; do
 					_status='0'
 				else
 					if [ ! "$(jq ".status" "${_cac_path}/${_id}_${_area}-new.js")" = '0' ]; then
-						_bundle="$(jq ".bundle" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
-						_name="$(jq ".name" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
-						_version="$(jq ".version" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
+						_bundle="$(jq -r ".bundle" "${_cac_path}/${_id}_${_area}.js")"
+						_name="$(jq -r ".name" "${_cac_path}/${_id}_${_area}.js")"
+						_version="$(jq -r ".version" "${_cac_path}/${_id}_${_area}.js")"
 						_status='3'
 					else
 						if [ ! "$(jq ".version" "${_cac_path}/${_id}_${_area}.js")" = "$(jq ".version" "${_cac_path}/${_id}_${_area}-new.js")" ]; then
-							_version="$(jq ".version" "${_cac_path}/${_id}_${_area}.js" | _remove_colon) -> $(jq ".version" "${_cac_path}/${_id}_${_area}-new.js" | _remove_colon)"
+							_version="$(jq -r ".version" "${_cac_path}/${_id}_${_area}.js") -> $(jq -r ".version" "${_cac_path}/${_id}_${_area}-new.js")"
 						else
-							_version="$(jq ".version" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
+							_version="$(jq -r ".version" "${_cac_path}/${_id}_${_area}.js")"
 						fi
 						if [ ! "$(jq ".price" "${_cac_path}/${_id}_${_area}.js")" = "$(jq ".price" "${_cac_path}/${_id}_${_area}-new.js")" ]; then
-							_price="$(jq ".price" "${_cac_path}/${_id}_${_area}.js" | _remove_colon) -> $(jq ".price" "${_cac_path}/${_id}_${_area}-new.js" | _remove_colon)"
+							_price="$(jq -r ".price" "${_cac_path}/${_id}_${_area}.js") -> $(jq -r ".price" "${_cac_path}/${_id}_${_area}-new.js")"
 						else
-							_price="$(jq ".price" "${_cac_path}/${_id}_${_area}.js" | _remove_colon)"
+							_price="$(jq -r ".price" "${_cac_path}/${_id}_${_area}.js")"
 						fi
 						_status='2'
 					fi
