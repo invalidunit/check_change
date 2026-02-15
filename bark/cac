@@ -2,7 +2,7 @@
 
 
 readonly _command="${0##*/}"
-readonly _c_version='0.3.6-1'
+readonly _c_version='0.3.6-2'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
@@ -10,7 +10,7 @@ _cac_path="${_path}/Caches/com.nan.cac"
 _record_path="${_path}/Record/com.nan.cac"
 mkdir -p "${_cac_path}" "${_record_path}"
 readonly _config="$(jq "." "${_path}/Preferences/com.nan.cac.js")"
-_authorization='Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU4UlRZVjVaRFMifQ.eyJpc3MiOiI3TktaMlZQNDhaIiwiaWF0IjoxNzY1NDc2ODYyLCJleHAiOjE3NzI3MzQ0NjIsInJvb3RfaHR0cHNfb3JpZ2luIjpbImFwcGxlLmNvbSJdfQ.Z3QyT824xnIeLyoENyCqvJ-LnRTLLnd8Oq-gqnosXujCEMIMyh6x3RhueZ3AYneIIggnZGszsPFTFKMmDOqm3w'
+_authorization='Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlU4UlRZVjVaRFMifQ.eyJpc3MiOiI3TktaMlZQNDhaIiwiaWF0IjoxNzcwODcxMzg5LCJleHAiOjE3NzgxMjg5ODksInJvb3RfaHR0cHNfb3JpZ2luIjpbImFwcGxlLmNvbSJdfQ.Tewb7DQbQYYjwlyHRehBb7Ksjcrd6wtg1xIfazeUE5iLQNPWGgh650cGJBeDjRhzk7fKIp-QyPigT14bV98Epw'
 echo "version: ${_c_version}"
 
 if [ -d '/proc/' ]; then
