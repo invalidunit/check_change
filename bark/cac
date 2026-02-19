@@ -107,7 +107,6 @@ _get_app_info(){
 	done
 	unset t t_max
 	if jq "." "${_tmp_file}" >"${_cac_path}/${2}_${1}-new.js"; then
-		rm -f "${_tmp_file}"
 		_bundle="$(jq -r ".data[].attributes.platformAttributes.ios.bundleId" "${_cac_path}/${2}_${1}-new.js")"
 		_version="$(jq -r ".data[].attributes.platformAttributes.ios.versionHistory[0].versionDisplay" "${_cac_path}/${2}_${1}-new.js")"
 		_version_id="$(jq -r ".data[].attributes.platformAttributes.ios.externalVersionId" "${_cac_path}/${2}_${1}-new.js")"
@@ -132,6 +131,7 @@ _get_app_info(){
 			jo status='1' id="${2}" | jq >"${_cac_path}/${2}_${1}-new.js"
 		fi
 	fi
+	rm -f "${_tmp_file}"
 }
 
 
