@@ -2,7 +2,7 @@
 
 
 readonly _command="${0##*/}"
-readonly _c_version='0.3.8'
+readonly _c_version='0.3.9'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
@@ -12,10 +12,10 @@ mkdir -p "${_cac_path}" "${_record_path}"
 readonly _config="$(jq "." "${_path}/Preferences/com.nan.cac.js")"
 echo "version: ${_c_version}"
 
-_token="$(curl -s 'https://invalidunit.github.io/token/asw')"
-if printf '%s\n' "${_token}" | jq -r ".status" | grep -q '^0$'; then
-	_authorization="Bearer $(printf '%s\n' "${_token}" | jq -r ".token")"
-	unset _token
+_token_asw="$(curl -s 'https://invalidunit.github.io/token/asw')"
+if printf '%s\n' "${_token_asw}" | jq -r ".status" | grep -q '^0$'; then
+	_authorization="Bearer $(printf '%s\n' "${_token_asw}" | jq -r ".token")"
+	unset _token_asw
 else
 	echo '[x] Failed to obtain token'
 	exit 1
