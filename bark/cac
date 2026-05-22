@@ -2,7 +2,7 @@
 
 
 readonly _command="${0##*/}"
-readonly _c_version='0.4.0-4-test'
+readonly _c_version='0.4.0-4'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
@@ -98,7 +98,6 @@ _get_app_info(){
 		fi
 	done
 	unset t t_max
-	jq "." "${_tmp_file}"
 	if jq "." "${_tmp_file}" >"${_cac_path}/${2}_${1}-new.js"; then
 		_bundle="$(jq -r ".data[].attributes.platformAttributes.ios.bundleId" "${_cac_path}/${2}_${1}-new.js")"
 		_version="$(jq -r ".data[].attributes.platformAttributes.ios.versionHistory[0].versionDisplay" "${_cac_path}/${2}_${1}-new.js")"
