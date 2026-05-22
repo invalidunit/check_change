@@ -2,7 +2,7 @@
 
 
 readonly _command="${0##*/}"
-readonly _c_version='0.4.0-3'
+readonly _c_version='0.4.0-4'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
@@ -185,7 +185,7 @@ if printf '%s\n' "${_config}" | jq ".enable" | grep -q '0'; then
 	exit 0
 fi
 i='0'
-i_max="$(printf '%s\n' "${_config}" | jq ".app|length")"
+i_max="$(printf '%s\n' "${_config}" | jq ".app | length")"
 while [ "${i}" -lt "${i_max}" ]; do
 	_sleep="$(_randnum '0-2' '1')$(_randnum '0-9' '1')"
 	echo "[*] wait \"${_sleep}s\""
