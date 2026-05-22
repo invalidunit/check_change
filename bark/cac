@@ -2,7 +2,7 @@
 
 
 readonly _command="${0##*/}"
-readonly _c_version='0.3.9'
+readonly _c_version='0.4.0'
 export LANG=en_US.UTF-8
 _start_time="$(date "+%Y-%m-%d-%H%M%S")"
 _path="$(echo "${1}" | sed 's#/$##')"
@@ -12,14 +12,6 @@ mkdir -p "${_cac_path}" "${_record_path}"
 readonly _config="$(jq "." "${_path}/Preferences/com.nan.cac.js")"
 echo "version: ${_c_version}"
 
-_token_asw="$(curl -s 'https://invalidunit.github.io/token/asw')"
-if printf '%s\n' "${_token_asw}" | jq -r ".status" | grep -q '^0$'; then
-	_authorization="Bearer $(printf '%s\n' "${_token_asw}" | jq -r ".token")"
-	unset _token_asw
-else
-	echo '[x] Failed to obtain token'
-	exit 1
-fi
 
 if [ -d '/proc/' ]; then
 	#openwrt not have ps -p
@@ -95,7 +87,7 @@ _get_app_info(){
 	t='0'
 	t_max='9'
 	while [ "${t}" -le "${t_max}" ]; do
-		curl --max-time 30 -s -L -o "${_tmp_file}" -H "user-agent: ${_user_agent}" -H 'accept: */*' -H "authorization: ${_authorization}" -H 'origin: https://apps.apple.com' "https://amp-api-edge.apps.apple.com/v1/catalog/${1}/apps/${2}?platform=iphone&additionalPlatforms=appletv%2Cipad%2Ciphone%2Cmac%2CrealityDevice%2Cwatch&extend=accessibility%2CaccessibilityDetails%2CageRating%2CbackgroundAssetsInfo%2CbackgroundAssetsInfoWithOptional%2CcustomArtwork%2CcustomDeepLink%2CcustomIconArtwork%2Cdescription%2CexpectedReleaseDateDisplayFormat%2CfileSizeByDevice%2CgameDisplayName%2CiconArtwork%2CinstallSizeByDeviceInBytes%2CminiGamesDeepLink%2CminimumOSVersion%2CremoteControllerRequirement%2CrequirementsByDeviceFamily%2CversionHistory&include%5Bapps%5D=app-events&availableIn%5Bapp-events%5D=future&sparseLimit%5Bapps%3Acustomers-also-bought-apps%5D=0&sparseLimit%5Bapps%3Adeveloper-other-apps%5D=0&sparseLimit%5Bapps%3Arelated-editorial-items%5D=0&limit%5Breviews%5D=1"
+		curl --max-time 30 -s -L -o "${_tmp_file}" -H "user-agent: ${_user_agent}" -H 'accept: */*' -H 'authorization: Bearer' -H 'Referer: https://apps.apple.com' "https://apps.apple.com/api/apps/v1/catalog/${1}/apps/${2}?platform=iphone&additionalPlatforms=appletv%2Cipad%2Ciphone%2Cmac%2CrealityDevice%2Cwatch&extend=expectedReleaseDateDisplayFormat,versionHistory'"
 		if grep -qi 'API capacity exceeded' "${_tmp_file}"; then
 			echo '[x] API capacity exceeded'
 			sleep 1
@@ -109,19 +101,19 @@ _get_app_info(){
 	if jq "." "${_tmp_file}" >"${_cac_path}/${2}_${1}-new.js"; then
 		_bundle="$(jq -r ".data[].attributes.platformAttributes.ios.bundleId" "${_cac_path}/${2}_${1}-new.js")"
 		_version="$(jq -r ".data[].attributes.platformAttributes.ios.versionHistory[0].versionDisplay" "${_cac_path}/${2}_${1}-new.js")"
-		_version_id="$(jq -r ".data[].attributes.platformAttributes.ios.externalVersionId" "${_cac_path}/${2}_${1}-new.js")"
+		_version_id="$(jq -r ".data[].attributes.platformAttributes.ios.versionHistory[0].externalVersionId" "${_cac_path}/${2}_${1}-new.js")"
 		_version_release_timestamp="$(jq -r ".data[].attributes.platformAttributes.ios.versionHistory[0].releaseTimestamp" "${_cac_path}/${2}_${1}-new.js")"
 		_name="$(jq -r ".data[].attributes.name" "${_cac_path}/${2}_${1}-new.js")"
 		_image="$(jq -r ".data[].attributes.platformAttributes.ios.artwork.url" "${_cac_path}/${2}_${1}-new.js")"
 		_image="${_image%\/*}/100x100bb.jpg"
-		_price="$(jq -r ".data[].attributes.platformAttributes.ios.offers[0].currencyCode" "${_cac_path}/${2}_${1}-new.js") $(jq -r ".data[].attributes.platformAttributes.ios.offers[0].priceString" "${_cac_path}/${2}_${1}-new.js")"
+		_price="$(jq -r ".data[].attributes.platformAttributes.ios.offers[0].priceFormatted" "${_cac_path}/${2}_${1}-new.js")"
 		_record="${_version},${_version_id}"
 		if [ -z "$(echo "${_price}" | tr -dc '1-9')" ]; then
 			unset _price
 		fi
-        if [ ! -f "${_record_path}/${2}_${1}.csv" ]; then
-            echo 'Version,id' >"${_record_path}/${2}_${1}.csv"
-        fi
+		if [ ! -f "${_record_path}/${2}_${1}.csv" ]; then
+			echo 'Version,id' >"${_record_path}/${2}_${1}.csv"
+		fi
 		if ! grep -q "${_record}" "${_record_path}/${2}_${1}.csv" 2>>/dev/null; then
 			echo "${_record}" >>"${_record_path}/${2}_${1}.csv"
 		fi
