@@ -12,14 +12,6 @@ mkdir -p "${_cac_path}" "${_record_path}"
 readonly _config="$(jq "." "${_path}/Preferences/com.nan.cac.js")"
 echo "version: ${_c_version}"
 
-_token_asw="$(curl -s 'https://invalidunit.github.io/token/asw')"
-if printf '%s\n' "${_token_asw}" | jq -r ".status" | grep -q '^0$'; then
-	_authorization="Bearer $(printf '%s\n' "${_token_asw}" | jq -r ".token")"
-	unset _token_asw
-else
-	echo '[x] Failed to obtain token'
-	exit 1
-fi
 
 if [ -d '/proc/' ]; then
 	#openwrt not have ps -p
